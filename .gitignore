@@ -19,3 +19,9 @@ data/midv2020/
 .DS_Store
 .vscode/
 *.log
+
+# Real/test documents with personal data - never commit
+data/*.jpg
+data/*.jpeg
+data/*.png
+data/scan_output.txt
