@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+env/
+*.egg-info/
+
+# Environment / secrets
+.env
+
+# Datasets & model weights (too large for git)
+data/midv2020/
+*.h5
+*.pth
+*.weights
+.deepface/
+
+# OS/editor junk
+.DS_Store
+.vscode/
+*.log
