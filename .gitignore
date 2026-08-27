@@ -25,3 +25,6 @@ data/*.jpg
 data/*.jpeg
 data/*.png
 data/scan_output.txt
+
+# Uploaded documents through the dashboard - may contain real PII
+data/uploads/
