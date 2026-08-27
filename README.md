@@ -1,19 +1,98 @@
-# SIH26188 - AI-Based Fake Identity and Document Screening System
-Team: Innovatrix
+# SIH26188 — AI-Based Fake Identity and Document Screening System
+**Team: Innovatrix** | Smart India Hackathon 2026
 
-## Setup
-1. Clone the repo
-2. Create a virtual environment: `python -m venv venv`
-3. Activate it: `source venv/Scripts/activate` (Git Bash on Windows)
-4. Install dependencies: `pip install -r requirements.txt`
-5. Copy `.env.example` to `.env` and fill in any API keys
+An AI + blockchain pipeline that screens ID documents (passport, Aadhaar, etc.) for authenticity — OCR extraction, field validation, tampering detection, and face verification, with a zero-PII blockchain audit trail.
 
-## Structure
-- `ocr/` - Tesseract/EasyOCR text extraction
-- `validation/` - document field validation
-- `tamper_detection/` - ELA-based tampering checks (OpenCV)
-- `face_verify/` - DeepFace/face_recognition matching
-- `blockchain/` - hashing + Ganache integration
-- `backend/` - Flask/FastAPI app tying modules together
-- `dashboard/` - frontend
-- `data/` - MIDV-2020 dataset (not tracked in git — download separately)
+---
+
+## Setup (do this first, every teammate)
+
+1. Clone the repo:
+```bash
+   git clone https://github.com/Ayu-creator25/SIH26188.git
+   cd SIH26188
+```
+2. Create your own virtual environment (never shared, never committed):
+```bash
+   py -3.12 -m venv venv
+```
+3. Activate it:
+   - Git Bash: `source venv/Scripts/activate`
+   - PowerShell/CMD: `venv\Scripts\activate`
+4. Install dependencies:
+```bash
+   pip install -r requirements.txt
+```
+5. Confirm it worked: `python --version` should show `3.12.x`, and your terminal prompt should show `(venv)`.
+
+---
+
+## Running the dashboard
+
+```bash
+python backend/app.py
+```
+Then open `http://127.0.0.1:5000` in your browser. Upload a JPG/PNG ID image to see OCR extraction run end-to-end.
+
+---
+
+## Project structure & module ownership
+
+| Folder | Purpose | Owner | Status |
+|---|---|---|---|
+| `ocr/` | Text extraction (EasyOCR, English + Hindi) | Ayush | ✅ Done |
+| `backend/` | Flask app tying everything together | Ayush | ✅ Basic version done |
+| `dashboard/` | Upload UI + results page | Ayush | ✅ Basic version done |
+| `validation/` | Document field validation | *[Name]* | 🔲 Stub only |
+| `tamper_detection/` | ELA-based tampering checks | *[Name]* | 🔲 Stub only |
+| `face_verify/` | Face match (ID photo vs. live capture) | *[Priyantan/Asuthosh]* | 🔲 Stub only |
+| `blockchain/` | SHA-256 hash + Ganache audit trail | *[Name]* | 🔲 Stub only |
+| `data/` | Test images (never commit real documents) | — | — |
+
+---
+
+## Working on your module
+
+Each unfinished module already has a starter file with the exact function it needs to implement — check the docstring at the top of your file for the expected inputs/outputs:
+
+- `validation/validate.py` → `validate_fields(extracted_text)`
+- `tamper_detection/tamper_check.py` → `check_tampering(image_path)`
+- `face_verify/face_match.py` → `verify_face(id_photo_path, live_photo_path)`
+- `blockchain/hash_record.py` → `create_record(document_id, result_summary)`
+
+You can run your file directly to test it standalone before it's wired into the dashboard:
+```bash
+python validation/validate.py
+```
+
+**Don't change the function name or its inputs/outputs** without telling the team — `backend/app.py` calls these exact signatures.
+
+---
+
+## Git workflow
+
+1. Before starting, sync with main:
+```bash
+   git checkout main
+   git pull
+```
+2. Create your own branch (never work directly on `main`):
+```bash
+   git checkout -b feature/your-module-name
+```
+3. Commit and push as you go:
+```bash
+   git add <files>
+   git commit -m "clear description of what changed"
+   git push -u origin feature/your-module-name
+```
+4. When your module works, open a Pull Request on GitHub into `main`. Someone reviews, then merges.
+5. Stick to your own folder — this alone avoids almost all merge conflicts. `requirements.txt` is the one shared file; if you add a package, just append it.
+
+---
+
+## Important rules
+
+- **Never commit real ID documents or personal data.** Use synthetic test images (MIDV-2020 dataset) — see `data/` folder notes.
+- **Never commit `venv/`** — it's already in `.gitignore`. Everyone creates their own locally.
+- **Zero-PII on blockchain** — only hashes, timestamps, and decision outcomes go on-chain, never raw document data.
