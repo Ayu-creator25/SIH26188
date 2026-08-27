@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SIH26188 — Document Screening</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <span class="topbar__mark">ID//SCREEN</span>
+    <span class="topbar__project">SIH26188 — Innovatrix</span>
+  </header>
+
+  <main class="stage">
+    <h1>Upload a document to screen</h1>
+    <p class="subtext">Passport, Aadhaar, or ID card image — JPG or PNG.</p>
+
+    {% if error %}
+      <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <form action="/scan" method="post" enctype="multipart/form-data" onsubmit="handleSubmit()">
+      <label class="scanner-frame" for="document" id="dropzone">
+        <input type="file" id="document" name="document" accept="image/*" required onchange="handleFileSelect(this)">
+        <span class="scanner-frame__corner scanner-frame__corner--tl"></span>
+        <span class="scanner-frame__corner scanner-frame__corner--tr"></span>
+        <span class="scanner-frame__corner scanner-frame__corner--bl"></span>
+        <span class="scanner-frame__corner scanner-frame__corner--br"></span>
+        <span class="scanner-frame__label" id="fileLabel">Click or drag a file here</span>
+      </label>
+      <button type="submit" class="btn-primary" id="scanBtn">Scan Document</button>
+    </form>
+  </main>
+
+  <script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('document');
+    const fileLabel = document.getElementById('fileLabel');
+
+    function handleFileSelect(input) {
+      if (input.files && input.files.length > 0) {
+        fileLabel.textContent = input.files[0].name;
+      }
+    }
+
+    function handleSubmit() {
+      const btn = document.getElementById('scanBtn');
+      btn.disabled = true;
+      btn.textContent = 'Scanning...';
+    }
+
+    // Safety net: stop the browser from trying to open/navigate to
+    // anything dropped anywhere on the page outside the dropzone.
+    ['dragover', 'drop'].forEach(eventName => {
+      window.addEventListener(eventName, (e) => e.preventDefault());
+    });
+
+    dropzone.addEventListener('dragover', () => {
+      dropzone.classList.add('scanner-frame--dragging');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('scanner-frame--dragging');
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      dropzone.classList.remove('scanner-frame--dragging');
+      if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        handleFileSelect(fileInput);
+      }
+    });
+  </script>
+</body>
+</html>

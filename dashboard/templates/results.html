@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scan Results — SIH26188</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <span class="topbar__mark">ID//SCREEN</span>
+    <span class="topbar__project">SIH26188 — Innovatrix</span>
+  </header>
+
+  <main class="stage">
+    <h1>Scan Results</h1>
+    <p class="subtext">File: <code>{{ result.filename }}</code></p>
+
+    <section class="panel">
+      <h2>Extracted Text (OCR)</h2>
+      <pre class="mono-block">{{ result.extracted_text }}</pre>
+    </section>
+
+    <section class="panel status-grid">
+      <div class="status-card status-card--pending">
+        <span class="status-card__label">Validation</span>
+        <span class="status-card__value">{{ result.validation_status }}</span>
+      </div>
+      <div class="status-card status-card--pending">
+        <span class="status-card__label">Tamper Check</span>
+        <span class="status-card__value">{{ result.tamper_status }}</span>
+      </div>
+      <div class="status-card status-card--pending">
+        <span class="status-card__label">Face Match</span>
+        <span class="status-card__value">{{ result.face_match_status }}</span>
+      </div>
+    </section>
+
+    <section class="panel decision-panel decision-panel--pending">
+      <span class="decision-panel__label">Overall Decision</span>
+      <span class="decision-panel__value">{{ result.overall_decision }}</span>
+    </section>
+
+    <a href="/" class="btn-secondary">Scan Another Document</a>
+  </main>
+  <script>
+    ['dragover', 'drop'].forEach(eventName => {
+      window.addEventListener(eventName, (e) => e.preventDefault());
+    });
+  </script>
+</body>
+</html>

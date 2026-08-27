@@ -1,0 +1,81 @@
+:root {
+  --navy: #0B3D66;
+  --bg: #F5F7FA;
+  --card: #FFFFFF;
+  --border: #D7DEE5;
+  --text: #1A2733;
+  --muted: #5B6B7A;
+  --verified: #1E8449;
+  --suspicious: #D68910;
+  --high-risk: #C0392B;
+  --pending: #7C8B99;
+  --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
+
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 32px; background: var(--navy); color: white;
+}
+.topbar__mark { font-family: var(--mono); font-weight: 700; letter-spacing: 0.05em; }
+.topbar__project { font-size: 0.85rem; opacity: 0.8; }
+
+.stage { max-width: 720px; margin: 0 auto; padding: 48px 24px; }
+h1 { font-size: 1.8rem; margin-bottom: 4px; }
+.subtext { color: var(--muted); margin-top: 0; margin-bottom: 32px; }
+.error { color: var(--high-risk); font-weight: 600; }
+
+.scanner-frame {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  height: 220px; border: 1px dashed var(--border); border-radius: 4px;
+  background: var(--card); cursor: pointer; margin-bottom: 20px;
+}
+.scanner-frame input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.scanner-frame__label { color: var(--muted); font-size: 0.95rem; pointer-events: none; }
+.scanner-frame__corner { position: absolute; width: 28px; height: 28px; border-color: var(--navy); border-style: solid; border-width: 0; }
+.scanner-frame__corner--tl { top: 10px; left: 10px; border-top-width: 3px; border-left-width: 3px; }
+.scanner-frame__corner--tr { top: 10px; right: 10px; border-top-width: 3px; border-right-width: 3px; }
+.scanner-frame__corner--bl { bottom: 10px; left: 10px; border-bottom-width: 3px; border-left-width: 3px; }
+.scanner-frame__corner--br { bottom: 10px; right: 10px; border-bottom-width: 3px; border-right-width: 3px; }
+
+.btn-primary, .btn-secondary {
+  display: inline-block; padding: 12px 24px; border-radius: 4px; border: none;
+  font-size: 0.95rem; font-weight: 600; cursor: pointer; text-decoration: none;
+}
+.btn-primary { background: var(--navy); color: white; }
+.btn-secondary { background: transparent; color: var(--navy); border: 1px solid var(--navy); margin-top: 24px; }
+
+.panel { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 20px 24px; margin-bottom: 20px; }
+.panel h2 { margin-top: 0; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+
+.mono-block { font-family: var(--mono); font-size: 0.85rem; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow-y: auto; margin: 0; }
+
+.status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 16px; }
+.status-card { text-align: center; padding: 16px; border-radius: 4px; border: 1px solid var(--border); }
+.status-card__label { display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.status-card__value { display: block; font-weight: 700; font-family: var(--mono); }
+.status-card--pending .status-card__value { color: var(--pending); }
+.status-card--verified .status-card__value { color: var(--verified); }
+.status-card--suspicious .status-card__value { color: var(--suspicious); }
+.status-card--high-risk .status-card__value { color: var(--high-risk); }
+
+.decision-panel { display: flex; justify-content: space-between; align-items: center; border-left: 6px solid var(--pending); }
+.decision-panel--verified { border-left-color: var(--verified); }
+.decision-panel--suspicious { border-left-color: var(--suspicious); }
+.decision-panel--high-risk { border-left-color: var(--high-risk); }
+.decision-panel__label { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.decision-panel__value { font-size: 1.2rem; font-weight: 700; font-family: var(--mono); }
+@media (max-width: 600px) {
+  .stage { padding: 32px 16px; }
+  .status-grid { grid-template-columns: 1fr; }
+  .topbar { padding: 12px 20px; flex-direction: column; align-items: flex-start; gap: 4px; }
+}
+.scanner-frame--dragging {
+  border-color: var(--navy);
+  border-style: solid;
+  background: #EEF3F8;
+}
