@@ -45,7 +45,7 @@ Then open `http://127.0.0.1:5000` in your browser. Upload a JPG/PNG ID image to 
 | `dashboard/` | Upload UI + results page | Ayush | ✅ Basic version done |
 | `validation/` | Document field validation (Aadhaar checksum, passport MRZ, dates) | Ayush | ✅ Done |
 | `tamper_detection/` | ELA-based tampering checks | *[Name]* | 🔲 Stub only |
-| `face_verify/` | Face match (ID photo vs. live capture) | *Priyantan & Asuthosh* | 🔲 Stub only |
+| `face_verify/` | Face match (ID photo vs. live capture) | *Priyantan & Asuthosh* | ✅ Done |
 | `blockchain/` | SHA-256 hash + Ganache audit trail | *[Name]* | 🔲 Stub only |
 | `data/` | Test images (never commit real documents) | — | — |
 
