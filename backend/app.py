@@ -6,6 +6,9 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ocr'))
 from scan import scan_document
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'validation'))
+from validate import validate_fields
+
 app = Flask(
     __name__,
     template_folder='../dashboard/templates',
@@ -27,9 +30,13 @@ def is_allowed_file(filename):
 
 def run_verification_pipeline(filepath):
     extracted_text = scan_document(filepath)
+    validation_result = validate_fields(extracted_text)
+
     return {
         "extracted_text": extracted_text,
-        "validation_status": "Pending",
+        "validation_status": validation_result["status"],
+        "validation_details": validation_result["details"],
+        "validation_checks": validation_result.get("checks", {}),
         "tamper_status": "Pending",
         "face_match_status": "Pending",
         "overall_decision": "Pending Review",

@@ -32,7 +32,7 @@ An AI + blockchain pipeline that screens ID documents (passport, Aadhaar, etc.) 
 ```bash
 python backend/app.py
 ```
-Then open `http://127.0.0.1:5000` in your browser. Upload a JPG/PNG ID image to see OCR extraction run end-to-end.
+Then open `http://127.0.0.1:5000` in your browser. Upload a JPG/PNG ID image to see OCR extraction, validation, and results run end-to-end.
 
 ---
 
@@ -43,9 +43,9 @@ Then open `http://127.0.0.1:5000` in your browser. Upload a JPG/PNG ID image to 
 | `ocr/` | Text extraction (EasyOCR, English + Hindi) | Ayush | ✅ Done |
 | `backend/` | Flask app tying everything together | Ayush | ✅ Basic version done |
 | `dashboard/` | Upload UI + results page | Ayush | ✅ Basic version done |
-| `validation/` | Document field validation | *[Name]* | 🔲 Stub only |
+| `validation/` | Document field validation (Aadhaar checksum, passport MRZ, dates) | Ayush | ✅ Done |
 | `tamper_detection/` | ELA-based tampering checks | *[Name]* | 🔲 Stub only |
-| `face_verify/` | Face match (ID photo vs. live capture) | *[Priyantan/Asuthosh]* | 🔲 Stub only |
+| `face_verify/` | Face match (ID photo vs. live capture) | *Priyantan & Asuthosh* | 🔲 Stub only |
 | `blockchain/` | SHA-256 hash + Ganache audit trail | *[Name]* | 🔲 Stub only |
 | `data/` | Test images (never commit real documents) | — | — |
 
@@ -55,14 +55,14 @@ Then open `http://127.0.0.1:5000` in your browser. Upload a JPG/PNG ID image to 
 
 Each unfinished module already has a starter file with the exact function it needs to implement — check the docstring at the top of your file for the expected inputs/outputs:
 
-- `validation/validate.py` → `validate_fields(extracted_text)`
+- `validation/validate.py` → `validate_fields(extracted_text)` — ✅ reference implementation, see `validation/test_validate.py` for how it's tested
 - `tamper_detection/tamper_check.py` → `check_tampering(image_path)`
 - `face_verify/face_match.py` → `verify_face(id_photo_path, live_photo_path)`
 - `blockchain/hash_record.py` → `create_record(document_id, result_summary)`
 
 You can run your file directly to test it standalone before it's wired into the dashboard:
 ```bash
-python validation/validate.py
+python validation/test_validate.py
 ```
 
 **Don't change the function name or its inputs/outputs** without telling the team — `backend/app.py` calls these exact signatures.
@@ -90,6 +90,21 @@ python validation/validate.py
 5. Stick to your own folder — this alone avoids almost all merge conflicts. `requirements.txt` is the one shared file; if you add a package, just append it.
 
 ---
+
+## Troubleshooting: "WinError 4551 - Application Control policy has blocked this file"
+
+Caused by Windows 11's **Smart App Control** blocking an unsigned torch DLL — not a bug in this project. Fix, in order:
+
+1. `pip uninstall torch torchvision -y` then `pip install torch torchvision` (sometimes works, zero risk)
+2. If not: install torch via conda instead (its build avoids the block), then use that environment for running the project:
+
+   conda create -n sih python=3.12
+   conda activate sih
+   conda install pytorch torchvision -c pytorch
+   pip install -r requirements.txt --no-deps
+   pip install flask easyocr
+
+3. Last resort: Windows Security → App & browser control → turn off Smart App Control. **One-way toggle** — only reversible via full Windows reset. Avoid on shared machines.
 
 ## Important rules
 
