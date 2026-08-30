@@ -98,10 +98,10 @@ python validation/test_validate.py
 
 ## Troubleshooting: "WinError 4551 - Application Control policy has blocked this file"
 
-Caused by Windows 11's **Smart App Control** blocking an unsigned torch DLL — not a bug in this project. Fix, in order:
+Caused by Windows 11's **Smart App Control** blocking an unsigned torch DLL — not a bug in this project. This `requirements.txt` already pins `torch==2.5.1`, an older, more widely-trusted build that avoids the block for most people. If you still hit this error:
 
-1. `pip uninstall torch torchvision -y` then `pip install torch torchvision` (sometimes works, zero risk)
-2. If not: install torch via conda instead (its build avoids the block), then use that environment for running the project:
+1. Confirm you're actually installing from this file (not a cached newer torch): `pip uninstall torch torchvision -y` then `pip install -r requirements.txt` again
+2. If it still fails: install via conda instead, then use that environment for running the project:
    
    conda create -n sih python=3.12
    conda activate sih
