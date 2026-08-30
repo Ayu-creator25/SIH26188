@@ -28,6 +28,27 @@
         <span class="scanner-frame__corner scanner-frame__corner--br"></span>
         <span class="scanner-frame__label" id="fileLabel">Click or drag a file here</span>
       </label>
+
+      <section class="camera-panel">
+        <h2>Live photo (optional)</h2>
+        <p class="camera-panel__hint">Capture a live photo to verify against the ID photo. Skip this if no camera is available — the rest of the scan still works.</p>
+
+        <div class="camera-panel__viewport">
+          <video id="webcamVideo" autoplay playsinline style="display:none"></video>
+          <img id="capturedPreview" alt="Captured live photo" style="display:none">
+        </div>
+        <canvas id="webcamCanvas" style="display:none"></canvas>
+
+        <div class="camera-panel__controls">
+          <button type="button" class="btn-secondary" id="startCameraBtn" onclick="startCamera()">Start Camera</button>
+          <button type="button" class="btn-primary" id="captureBtn" onclick="capturePhoto()" style="display:none">Capture Photo</button>
+          <button type="button" class="btn-secondary" id="retakeBtn" onclick="retakePhoto()" style="display:none">Retake</button>
+        </div>
+
+        <p class="camera-panel__status" id="cameraStatus">No live photo captured (optional)</p>
+        <input type="file" id="livePhotoInput" name="live_photo" style="display:none">
+      </section>
+
       <button type="submit" class="btn-primary" id="scanBtn">Scan Document</button>
     </form>
   </main>
@@ -49,8 +70,6 @@
       btn.textContent = 'Scanning...';
     }
 
-    // Safety net: stop the browser from trying to open/navigate to
-    // anything dropped anywhere on the page outside the dropzone.
     ['dragover', 'drop'].forEach(eventName => {
       window.addEventListener(eventName, (e) => e.preventDefault());
     });
@@ -70,6 +89,70 @@
         handleFileSelect(fileInput);
       }
     });
+
+    // --- Live webcam capture ---
+    let webcamStream = null;
+    const webcamVideo = document.getElementById('webcamVideo');
+    const webcamCanvas = document.getElementById('webcamCanvas');
+    const capturedPreview = document.getElementById('capturedPreview');
+    const livePhotoInput = document.getElementById('livePhotoInput');
+    const cameraStatus = document.getElementById('cameraStatus');
+    const startCameraBtn = document.getElementById('startCameraBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const retakeBtn = document.getElementById('retakeBtn');
+
+    async function startCamera() {
+      try {
+        webcamStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        webcamVideo.srcObject = webcamStream;
+        webcamVideo.style.display = 'block';
+        capturedPreview.style.display = 'none';
+        startCameraBtn.style.display = 'none';
+        captureBtn.style.display = 'inline-block';
+        retakeBtn.style.display = 'none';
+        cameraStatus.textContent = 'Camera active — position your face and capture';
+      } catch (err) {
+        cameraStatus.textContent = 'Camera unavailable: ' + err.message + ' (you can still scan without it)';
+      }
+    }
+
+    function capturePhoto() {
+      const context = webcamCanvas.getContext('2d');
+      webcamCanvas.width = webcamVideo.videoWidth;
+      webcamCanvas.height = webcamVideo.videoHeight;
+      context.drawImage(webcamVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
+
+      webcamCanvas.toBlob((blob) => {
+        const file = new File([blob], 'live_capture.jpg', { type: 'image/jpeg' });
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        livePhotoInput.files = dataTransfer.files;
+
+        capturedPreview.src = URL.createObjectURL(blob);
+        capturedPreview.style.display = 'block';
+        webcamVideo.style.display = 'none';
+        captureBtn.style.display = 'none';
+        retakeBtn.style.display = 'inline-block';
+        cameraStatus.textContent = 'Live photo captured';
+
+        stopCameraStream();
+      }, 'image/jpeg', 0.9);
+    }
+
+    function retakePhoto() {
+      livePhotoInput.value = '';
+      capturedPreview.style.display = 'none';
+      retakeBtn.style.display = 'none';
+      cameraStatus.textContent = 'No live photo captured (optional)';
+      startCamera();
+    }
+
+    function stopCameraStream() {
+      if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+        webcamStream = null;
+      }
+    }
   </script>
 </body>
 </html>
