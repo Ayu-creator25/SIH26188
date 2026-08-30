@@ -44,7 +44,7 @@ Then open `http://127.0.0.1:5000` in your browser. Upload a JPG/PNG ID image to 
 | `backend/` | Flask app tying everything together | Ayush | ✅ Basic version done |
 | `dashboard/` | Upload UI + results page | Ayush | ✅ Basic version done |
 | `validation/` | Document field validation (Aadhaar checksum, passport MRZ, dates) | Ayush | ✅ Done |
-| `tamper_detection/` | ELA-based tampering checks | *[Name]* | 🔲 Stub only |
+| `tamper_detection/` | ELA-based tampering checks | Ashutosh | ✅ Done |
 | `face_verify/` | Face match (ID photo vs. live capture) | *Priyantan & Asuthosh* | ✅ Done |
 | `blockchain/` | SHA-256 hash + Ganache audit trail | *[Name]* | 🔲 Stub only |
 | `data/` | Test images (never commit real documents) | — | — |
@@ -56,7 +56,7 @@ Then open `http://127.0.0.1:5000` in your browser. Upload a JPG/PNG ID image to 
 Each unfinished module already has a starter file with the exact function it needs to implement — check the docstring at the top of your file for the expected inputs/outputs:
 
 - `validation/validate.py` → `validate_fields(extracted_text)` — ✅ reference implementation, see `validation/test_validate.py` for how it's tested
-- `tamper_detection/tamper_check.py` → `check_tampering(image_path)`
+- `tamper_detection/tamper_check.py` → `check_tampering(image_path)` — ✅ reference implementation, see `tamper_detection/test_tamper_check.py` for how it's tested
 - `face_verify/face_match.py` → `verify_face(id_photo_path, live_photo_path)`
 - `blockchain/hash_record.py` → `create_record(document_id, result_summary)`
 
