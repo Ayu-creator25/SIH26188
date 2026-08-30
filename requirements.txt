@@ -25,6 +25,7 @@ gunicorn==26.2.0
 h5py==3.14.0
 idna==3.18
 ImageIO==2.37.4
+iniconfig==2.3.0
 itsdangerous==2.2.0
 Jinja2==3.1.6
 joblib==1.5.3
@@ -51,11 +52,13 @@ optree==0.20.0
 packaging==26.3
 pandas==3.0.5
 pillow==12.3.0
+pluggy==1.6.0
 protobuf==7.36.0
 pyclipper==1.4.0
 pycparser==3.0
 Pygments==2.21.0
 PySocks==1.7.1
+pytest==9.1.1
 python-bidi==0.6.11
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.3
