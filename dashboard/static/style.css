@@ -79,3 +79,56 @@ h1 { font-size: 1.8rem; margin-bottom: 4px; }
   border-style: solid;
   background: #EEF3F8;
 }
+.camera-panel {
+  margin-bottom: 20px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--card);
+}
+
+.camera-panel h2 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.camera-panel__hint {
+  margin: 0 0 16px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.camera-panel__viewport {
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 4 / 3;
+  background: #000;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-panel__viewport video,
+.camera-panel__viewport img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camera-panel__controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.camera-panel__status {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0;
+}

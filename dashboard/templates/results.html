@@ -21,19 +21,28 @@
     </section>
 
     <section class="panel status-grid">
-      <div class="status-card status-card--pending">
+      {% set validation_class = {'Valid': 'status-card--verified', 'Invalid': 'status-card--high-risk'}.get(result.validation_status, 'status-card--pending') %}
+      <div class="status-card {{ validation_class }}">
         <span class="status-card__label">Validation</span>
         <span class="status-card__value">{{ result.validation_status }}</span>
       </div>
-      <div class="status-card status-card--pending">
+
+      {% set tamper_class = {'Clean': 'status-card--verified', 'Suspicious': 'status-card--high-risk'}.get(result.tamper_status, 'status-card--pending') %}
+      <div class="status-card {{ tamper_class }}">
         <span class="status-card__label">Tamper Check</span>
         <span class="status-card__value">{{ result.tamper_status }}</span>
       </div>
-      <div class="status-card status-card--pending">
+
+      {% set face_class = {'Match': 'status-card--verified', 'No Match': 'status-card--high-risk'}.get(result.face_match_status, 'status-card--pending') %}
+      <div class="status-card {{ face_class }}">
         <span class="status-card__label">Face Match</span>
         <span class="status-card__value">{{ result.face_match_status }}</span>
       </div>
     </section>
+
+    {% if result.face_match_details %}
+      <p class="subtext">Face match detail: {{ result.face_match_details }}</p>
+    {% endif %}
 
     <section class="panel decision-panel decision-panel--pending">
       <span class="decision-panel__label">Overall Decision</span>
@@ -42,6 +51,7 @@
 
     <a href="/" class="btn-secondary">Scan Another Document</a>
   </main>
+
   <script>
     ['dragover', 'drop'].forEach(eventName => {
       window.addEventListener(eventName, (e) => e.preventDefault());

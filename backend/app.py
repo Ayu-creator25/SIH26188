@@ -9,6 +9,9 @@ from scan import scan_document
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'validation'))
 from validate import validate_fields
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'face_verify'))
+from face_match import verify_face
+
 app = Flask(
     __name__,
     template_folder='../dashboard/templates',
@@ -22,15 +25,32 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 
+# Maps face_verify's own status vocabulary (MATCH/NO_MATCH/ERROR) onto the
+# display vocabulary used everywhere else in the dashboard (Valid/Invalid/
+# Pending-style states), without needing to change face_match.py itself.
+FACE_STATUS_DISPLAY = {
+    "MATCH": "Match",
+    "NO_MATCH": "No Match",
+    "ERROR": "Pending",
+}
+
 
 def is_allowed_file(filename):
     ext = os.path.splitext(filename)[1].lower()
     return ext in ALLOWED_EXTENSIONS
 
 
-def run_verification_pipeline(filepath):
-    extracted_text = scan_document(filepath)
+def run_verification_pipeline(id_filepath, live_filepath):
+    extracted_text = scan_document(id_filepath)
     validation_result = validate_fields(extracted_text)
+
+    if live_filepath:
+        face_result = verify_face(id_filepath, live_filepath)
+        face_match_status = FACE_STATUS_DISPLAY.get(face_result["status"], "Pending")
+        face_match_details = face_result["message"]
+    else:
+        face_match_status = "Pending"
+        face_match_details = "No live photo captured."
 
     return {
         "extracted_text": extracted_text,
@@ -38,7 +58,8 @@ def run_verification_pipeline(filepath):
         "validation_details": validation_result["details"],
         "validation_checks": validation_result.get("checks", {}),
         "tamper_status": "Pending",
-        "face_match_status": "Pending",
+        "face_match_status": face_match_status,
+        "face_match_details": face_match_details,
         "overall_decision": "Pending Review",
     }
 
@@ -62,8 +83,16 @@ def scan():
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
+    # Live photo is optional - not everyone has a working webcam.
+    live_filepath = None
+    live_file = request.files.get('live_photo')
+    if live_file and live_file.filename != '' and is_allowed_file(live_file.filename):
+        live_filename = "live_" + secure_filename(live_file.filename)
+        live_filepath = os.path.join(UPLOAD_FOLDER, live_filename)
+        live_file.save(live_filepath)
+
     try:
-        pipeline_result = run_verification_pipeline(filepath)
+        pipeline_result = run_verification_pipeline(filepath, live_filepath)
     except Exception as e:
         print(f"Error processing {filename}: {e}")
         return render_template(
