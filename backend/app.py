@@ -12,6 +12,9 @@ from validate import validate_fields
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'face_verify'))
 from face_match import verify_face
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'tamper_detection'))
+from tamper_check import check_tampering
+
 app = Flask(
     __name__,
     template_folder='../dashboard/templates',
@@ -25,9 +28,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 
-# Maps face_verify's own status vocabulary (MATCH/NO_MATCH/ERROR) onto the
-# display vocabulary used everywhere else in the dashboard (Valid/Invalid/
-# Pending-style states), without needing to change face_match.py itself.
 FACE_STATUS_DISPLAY = {
     "MATCH": "Match",
     "NO_MATCH": "No Match",
@@ -43,6 +43,7 @@ def is_allowed_file(filename):
 def run_verification_pipeline(id_filepath, live_filepath):
     extracted_text = scan_document(id_filepath)
     validation_result = validate_fields(extracted_text)
+    tamper_result = check_tampering(id_filepath)
 
     if live_filepath:
         face_result = verify_face(id_filepath, live_filepath)
@@ -57,7 +58,8 @@ def run_verification_pipeline(id_filepath, live_filepath):
         "validation_status": validation_result["status"],
         "validation_details": validation_result["details"],
         "validation_checks": validation_result.get("checks", {}),
-        "tamper_status": "Pending",
+        "tamper_status": tamper_result["status"],
+        "tamper_details": tamper_result["details"],
         "face_match_status": face_match_status,
         "face_match_details": face_match_details,
         "overall_decision": "Pending Review",
@@ -83,7 +85,6 @@ def scan():
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
-    # Live photo is optional - not everyone has a working webcam.
     live_filepath = None
     live_file = request.files.get('live_photo')
     if live_file and live_file.filename != '' and is_allowed_file(live_file.filename):
