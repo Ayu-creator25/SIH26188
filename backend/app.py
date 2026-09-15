@@ -40,6 +40,28 @@ def is_allowed_file(filename):
     return ext in ALLOWED_EXTENSIONS
 
 
+def determine_overall_decision(validation_status, tamper_status, face_match_status):
+    """
+    Combine the three independent signals into one final verdict:
+    Verified / Suspicious / High Risk.
+
+    Rule: "worst signal wins". A hard failure on any check means
+    High Risk. A check that couldn't be completed means Suspicious.
+    Only a full clean pass on all three counts as Verified.
+    """
+    if tamper_status == "Suspicious":
+        return "High Risk"
+    if validation_status == "Invalid":
+        return "High Risk"
+    if face_match_status == "No Match":
+        return "High Risk"
+
+    if "Pending" in (validation_status, tamper_status, face_match_status):
+        return "Suspicious"
+
+    return "Verified"
+
+
 def run_verification_pipeline(id_filepath, live_filepath):
     extracted_text = scan_document(id_filepath)
     validation_result = validate_fields(extracted_text)
@@ -53,6 +75,10 @@ def run_verification_pipeline(id_filepath, live_filepath):
         face_match_status = "Pending"
         face_match_details = "No live photo captured."
 
+    overall_decision = determine_overall_decision(
+        validation_result["status"], tamper_result["status"], face_match_status
+    )
+        
     return {
         "extracted_text": extracted_text,
         "validation_status": validation_result["status"],
@@ -62,7 +88,7 @@ def run_verification_pipeline(id_filepath, live_filepath):
         "tamper_details": tamper_result["details"],
         "face_match_status": face_match_status,
         "face_match_details": face_match_details,
-        "overall_decision": "Pending Review",
+        "overall_decision": overall_decision,
     }
 
 
