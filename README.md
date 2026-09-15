@@ -1,5 +1,5 @@
 # SIH26188 — AI-Based Fake Identity and Document Screening System
-**Team: Innovatrix** | Smart India Hackathon 2026
+**Team: Think Forge** | Smart India Hackathon 2026
 
 An AI + blockchain pipeline that screens ID documents (passport, Aadhaar, etc.) for authenticity — OCR extraction, field validation, tampering detection, and face verification, with a zero-PII blockchain audit trail.
 
