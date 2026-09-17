@@ -40,6 +40,29 @@
       </div>
     </section>
 
+  <section class="panel">
+    <h2>Blockchain Audit Trail</h2>
+
+    {% set blockchain_class = {'Recorded': 'decision-panel--verified'}.get(result.blockchain_status, 'decision-panel--pending') %}
+    <div class="decision-panel {{ blockchain_class }}">
+      <span class="decision-panel__label">Ledger Status</span>
+      <span class="decision-panel__value">{{ result.blockchain_status }}</span>
+    </div>
+
+    {% if result.blockchain_tx_hash %}
+      <div class="hash-block">
+        <span class="hash-block__label">Transaction Hash</span>
+        <pre class="mono-block">{{ result.blockchain_tx_hash }}</pre>
+      </div>
+      <div class="hash-block">
+        <span class="hash-block__label">Record Hash (SHA-256)</span>
+        <pre class="mono-block">{{ result.blockchain_record_hash }}</pre>
+      </div>
+    {% else %}
+      <p class="subtext">Local blockchain wasn't reachable — no on-chain record was created for this scan.</p>
+    {% endif %}
+  </section>
+
     {% if result.tamper_details %}
       <p class="subtext">Tamper check detail: {{ result.tamper_details }}</p>
     {% endif %}
