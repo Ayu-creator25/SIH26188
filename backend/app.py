@@ -2,6 +2,7 @@ from flask import Flask, render_template, request
 from werkzeug.utils import secure_filename
 import os
 import sys
+import uuid
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ocr'))
 from scan import scan_document
@@ -14,6 +15,9 @@ from face_match import verify_face
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'tamper_detection'))
 from tamper_check import check_tampering
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'blockchain'))
+from hash_record import create_record
 
 app = Flask(
     __name__,
@@ -78,8 +82,25 @@ def run_verification_pipeline(id_filepath, live_filepath):
     overall_decision = determine_overall_decision(
         validation_result["status"], tamper_result["status"], face_match_status
     )
-        
+
+    # Zero-PII blockchain audit trail: a fresh random ID (never the real
+    # filename or document number) plus only the decision outcomes go
+    # on-chain. If Ganache isn't reachable, degrade gracefully instead of
+    # failing the whole scan over an audit-trail hiccup.
+    document_id = str(uuid.uuid4())
+    try:
+        blockchain_result = create_record(document_id, {
+            "decision": overall_decision,
+            "validation_status": validation_result["status"],
+            "tamper_status": tamper_result["status"],
+            "face_match_status": face_match_status,
+        })
+    except Exception as e:
+        print(f"Blockchain recording failed: {e}")
+        blockchain_result = {"tx_hash": None, "record_hash": None, "status": "Pending"}
+
     return {
+        "document_id": document_id,
         "extracted_text": extracted_text,
         "validation_status": validation_result["status"],
         "validation_details": validation_result["details"],
@@ -89,6 +110,9 @@ def run_verification_pipeline(id_filepath, live_filepath):
         "face_match_status": face_match_status,
         "face_match_details": face_match_details,
         "overall_decision": overall_decision,
+        "blockchain_tx_hash": blockchain_result["tx_hash"],
+        "blockchain_record_hash": blockchain_result["record_hash"],
+        "blockchain_status": blockchain_result["status"],
     }
 
 
