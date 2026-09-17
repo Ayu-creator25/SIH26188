@@ -65,7 +65,6 @@ namex==0.1.0
 networkx==3.6.1
 ninja==1.13.0
 numpy==2.5.2
-opencv-python==5.0.0.93
 opencv-python-headless==5.0.0.93
 opt_einsum==3.4.0
 optree==0.20.0
