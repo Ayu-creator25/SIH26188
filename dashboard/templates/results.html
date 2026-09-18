@@ -38,6 +38,12 @@
         <span class="status-card__label">Face Match</span>
         <span class="status-card__value">{{ result.face_match_status }}</span>
       </div>
+
+      {% set liveness_class = {'Live': 'status-card--verified', 'Spoof Detected': 'status-card--high-risk'}.get(result.liveness_status, 'status-card--pending') %}
+      <div class="status-card {{ liveness_class }}">
+        <span class="status-card__label">Liveness</span>
+        <span class="status-card__value">{{ result.liveness_status }}</span>
+      </div>
     </section>
 
   <section class="panel">
@@ -65,6 +71,9 @@
 
     {% if result.tamper_details %}
       <p class="subtext">Tamper check detail: {{ result.tamper_details }}</p>
+    {% endif %}
+    {% if result.liveness_details %}
+      <p class="subtext">Liveness check detail: {{ result.liveness_details }}</p>
     {% endif %}
 
     <section class="panel decision-panel decision-panel--pending">
