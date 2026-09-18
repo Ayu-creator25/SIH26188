@@ -19,6 +19,9 @@ from tamper_check import check_tampering
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'blockchain'))
 from hash_record import create_record
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'liveness'))
+from liveness_check import check_liveness
+
 app = Flask(
     __name__,
     template_folder='../dashboard/templates',
@@ -38,20 +41,26 @@ FACE_STATUS_DISPLAY = {
     "ERROR": "Pending",
 }
 
+LIVENESS_STATUS_DISPLAY = {
+    True: "Live",
+    False: "Spoof Detected",
+    None: "Pending",
+}
+
 
 def is_allowed_file(filename):
     ext = os.path.splitext(filename)[1].lower()
     return ext in ALLOWED_EXTENSIONS
 
 
-def determine_overall_decision(validation_status, tamper_status, face_match_status):
+def determine_overall_decision(validation_status, tamper_status, face_match_status, liveness_status):
     """
-    Combine the three independent signals into one final verdict:
+    Combine the four independent signals into one final verdict:
     Verified / Suspicious / High Risk.
 
     Rule: "worst signal wins". A hard failure on any check means
     High Risk. A check that couldn't be completed means Suspicious.
-    Only a full clean pass on all three counts as Verified.
+    Only a full clean pass on all four counts as Verified.
     """
     if tamper_status == "Suspicious":
         return "High Risk"
@@ -59,8 +68,10 @@ def determine_overall_decision(validation_status, tamper_status, face_match_stat
         return "High Risk"
     if face_match_status == "No Match":
         return "High Risk"
+    if liveness_status == "Spoof Detected":
+        return "High Risk"
 
-    if "Pending" in (validation_status, tamper_status, face_match_status):
+    if "Pending" in (validation_status, tamper_status, face_match_status, liveness_status):
         return "Suspicious"
 
     return "Verified"
@@ -72,21 +83,28 @@ def run_verification_pipeline(id_filepath, live_filepath):
     tamper_result = check_tampering(id_filepath)
 
     if live_filepath:
+        try:
+            liveness_result = check_liveness(live_filepath)
+            liveness_status = LIVENESS_STATUS_DISPLAY.get(liveness_result["is_live"], "Pending")
+            liveness_details = liveness_result["error"] or f"Confidence: {liveness_result['confidence']}"
+        except Exception as e:
+            print(f"Liveness check failed: {e}")
+            liveness_status = "Pending"
+            liveness_details = "Liveness check could not be completed."
+
         face_result = verify_face(id_filepath, live_filepath)
         face_match_status = FACE_STATUS_DISPLAY.get(face_result["status"], "Pending")
         face_match_details = face_result["message"]
     else:
+        liveness_status = "Pending"
+        liveness_details = "No live photo captured."
         face_match_status = "Pending"
         face_match_details = "No live photo captured."
 
     overall_decision = determine_overall_decision(
-        validation_result["status"], tamper_result["status"], face_match_status
+        validation_result["status"], tamper_result["status"], face_match_status, liveness_status
     )
 
-    # Zero-PII blockchain audit trail: a fresh random ID (never the real
-    # filename or document number) plus only the decision outcomes go
-    # on-chain. If Ganache isn't reachable, degrade gracefully instead of
-    # failing the whole scan over an audit-trail hiccup.
     document_id = str(uuid.uuid4())
     try:
         blockchain_result = create_record(document_id, {
@@ -94,6 +112,7 @@ def run_verification_pipeline(id_filepath, live_filepath):
             "validation_status": validation_result["status"],
             "tamper_status": tamper_result["status"],
             "face_match_status": face_match_status,
+            "liveness_status": liveness_status,
         })
     except Exception as e:
         print(f"Blockchain recording failed: {e}")
@@ -109,6 +128,8 @@ def run_verification_pipeline(id_filepath, live_filepath):
         "tamper_details": tamper_result["details"],
         "face_match_status": face_match_status,
         "face_match_details": face_match_details,
+        "liveness_status": liveness_status,
+        "liveness_details": liveness_details,
         "overall_decision": overall_decision,
         "blockchain_tx_hash": blockchain_result["tx_hash"],
         "blockchain_record_hash": blockchain_result["record_hash"],
