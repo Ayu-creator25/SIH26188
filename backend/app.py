@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, redirect, render_template, request, session, url_for
 from werkzeug.utils import secure_filename
 import os
 import sys
@@ -22,6 +22,9 @@ from hash_record import create_record
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'liveness'))
 from liveness_check import check_liveness
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'auth'))
+from auth import check_credentials, login_required
+
 app = Flask(
     __name__,
     template_folder='../dashboard/templates',
@@ -29,6 +32,14 @@ app = Flask(
 )
 
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
+# Key used to sign the session cookie (loaded from .env by auth.py).
+# Fail loudly at startup instead of crashing later on the first login.
+app.secret_key = os.environ.get('SECRET_KEY')
+if not app.secret_key:
+    raise RuntimeError("SECRET_KEY is missing. Create the .env file first.")
+
+# Stops other websites from sending our cookie with cross-site requests.
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'data', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -137,12 +148,37 @@ def run_verification_pipeline(id_filepath, live_filepath):
     }
 
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Show the login form (GET) or check the submitted login (POST)."""
+    if request.method == 'POST':
+        username = request.form.get('username', '')
+        password = request.form.get('password', '')
+        if check_credentials(username, password):
+            session.clear()  # start from a fresh session
+            session['logged_in'] = True  # only a flag, never the password
+            return redirect(url_for('index'))
+        return render_template(
+            'login.html', error="Invalid username or password."
+        ), 401
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    """Clear the session and send the user back to the login page."""
+    session.clear()
+    return redirect(url_for('login'))
+
+
 @app.route('/')
+@login_required
 def index():
     return render_template('index.html')
 
 
 @app.route('/scan', methods=['POST'])
+@login_required
 def scan():
     file = request.files.get('document')
 
