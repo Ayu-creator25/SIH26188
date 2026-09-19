@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in — SIH26188</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    /* Form styling only used on this page; reuses colors from style.css */
+    .login-form { display: flex; flex-direction: column; gap: 16px; max-width: 360px; }
+    .login-form label {
+      font-size: 0.85rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .login-form input {
+      display: block; width: 100%; margin-top: 6px; padding: 12px;
+      border: 1px solid var(--border); border-radius: 4px;
+      font-size: 1rem; font-family: var(--sans);
+      background: var(--card); color: var(--text);
+    }
+    .login-form input:focus { outline: 2px solid var(--navy); outline-offset: 1px; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <span class="topbar__mark">ID//SCREEN</span>
+    <span class="topbar__project">SIH26188 — Think Forge</span>
+  </header>
+
+  <main class="stage">
+    <h1>Sign in</h1>
+    <p class="subtext">Log in to access the document screening dashboard.</p>
+
+    {% if error %}
+      <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <!-- method="post" keeps the password out of the URL and browser history -->
+    <form action="/login" method="post" class="login-form">
+      <label>
+        Username
+        <input type="text" name="username" autocomplete="username" required autofocus>
+      </label>
+
+      <label>
+        Password
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+
+      <button type="submit" class="btn-primary">Sign in</button>
+    </form>
+  </main>
+</body>
+</html>

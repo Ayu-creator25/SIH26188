@@ -148,3 +148,8 @@ h1 { font-size: 1.8rem; margin-bottom: 4px; }
 .hash-block .mono-block {
   max-height: none;
 }
+.topbar__logout {
+  margin-left: 16px;
+  color: white;
+  text-decoration: underline;
+}
