@@ -3,16 +3,17 @@ Blockchain Audit Trail Module
 -------------------------------
 Creates a SHA-256 hash of the verification result and writes it to the
 local Ganache blockchain via Web3.py. No PII is ever written on-chain —
-only a document ID, timestamp, risk score, and outcome hash.
+only the SHA-256 hash of a record made of a random document ID, a
+timestamp and the check outcomes. Use audit_store.verify_record() to
+later prove a stored record still matches the hash anchored here.
 
 Expected contract (do not change without also updating backend/app.py):
     create_record(document_id: str, result_summary: dict) -> dict
 """
 
-import hashlib
-import json
-
 from web3 import Web3
+
+from audit_store import compute_record_hash
 
 # Ganache's local RPC address (shown in the Ganache app's "RPC Server" field)
 GANACHE_URL = "http://127.0.0.1:7545"
@@ -26,7 +27,8 @@ def create_record(document_id, result_summary):
         document_id (str): A non-PII identifier for this scan (e.g. a
             generated UUID — never the actual document number).
         result_summary (dict): Non-sensitive summary of the verification
-            outcome (e.g. {"decision": "Verified", "risk_score": 0.1}).
+            outcome (e.g. {"timestamp": "2026-09-20T10:00:00+00:00",
+            "decision": "Verified"}).
 
     Returns:
         dict: {
@@ -46,15 +48,10 @@ def create_record(document_id, result_summary):
             "status": "Pending"
         }
 
-    # Build one exact, repeatable string from the inputs. sort_keys=True
-    # guarantees the same dict always produces the same string, no matter
-    # what order its keys happen to be in — which means the same input
-    # always produces the same hash.
-    record_string = json.dumps(
-        {"document_id": document_id, "result_summary": result_summary},
-        sort_keys=True
-    )
-    record_hash = hashlib.sha256(record_string.encode("utf-8")).hexdigest()
+    # One exact, repeatable hash of the record. The same function is used by
+    # audit_store.verify_record(), so a later re-hash always matches this one
+    # unless the stored record was altered.
+    record_hash = compute_record_hash(document_id, result_summary)
 
     # Ganache pre-funds 10 test accounts for us; use the first one both
     # to send from and send to — we're not transferring value to anyone,

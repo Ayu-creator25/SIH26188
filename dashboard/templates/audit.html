@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Audit Log — SIH26188</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    /* Table styling used only on this page; colours come from style.css */
+    .audit-table-wrap { overflow-x: auto; }
+    .audit-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .audit-table th, .audit-table td {
+      text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border);
+    }
+    .audit-table th {
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
+    }
+    .audit-table code { font-family: var(--mono); font-size: 0.8rem; }
+    .integrity { font-family: var(--mono); font-weight: 700; }
+    .integrity--INTACT { color: var(--verified); }
+    .integrity--TAMPERED { color: var(--high-risk); }
+    .integrity--CHAIN_RECORD_MISSING { color: var(--suspicious); }
+    .integrity--RECORD_NOT_FOUND, .integrity--CHAIN_UNAVAILABLE { color: var(--pending); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <span class="topbar__mark">ID//SCREEN</span>
+    <span class="topbar__project">SIH26188 — Think Forge <a href="/audit" class="topbar__logout">Audit log</a> <a href="/logout" class="topbar__logout">Sign out</a></span>
+  </header>
+
+  <main class="stage">
+    <h1>Audit Log</h1>
+    <p class="subtext">
+      Recent scan records, each re-hashed and compared with the hash anchored on
+      the blockchain. The list shows the record as it is stored now.
+    </p>
+
+    {% if records %}
+      <section class="panel audit-table-wrap">
+        <table class="audit-table">
+          <thead>
+            <tr>
+              <th>Time (UTC)</th>
+              <th>Decision</th>
+              <th>Document ID</th>
+              <th>Integrity</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in records %}
+              <tr>
+                <td>{{ record.timestamp.replace('T', ' ')[:19] or '—' }}</td>
+                <td>{{ record.decision }}</td>
+                <td><code>{{ record.document_id[:8] }}…</code></td>
+                <td class="integrity integrity--{{ record.verification.status }}">{{ record.verification.label }}</td>
+                <td><a href="/verify/{{ record.document_id }}">Details</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    {% else %}
+      <p class="subtext">No records yet. Scan a document while Ganache is running and it will appear here.</p>
+    {% endif %}
+
+    <a href="/" class="btn-secondary">Scan a document</a>
+  </main>
+</body>
+</html>

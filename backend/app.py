@@ -3,6 +3,7 @@ from werkzeug.utils import secure_filename
 import os
 import sys
 import uuid
+from datetime import datetime, timezone
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ocr'))
 from scan import scan_document
@@ -18,6 +19,7 @@ from tamper_check import check_tampering
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'blockchain'))
 from hash_record import create_record
+from audit_store import get_w3, list_records, save_record, verify_record
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'liveness'))
 from liveness_check import check_liveness
@@ -117,17 +119,34 @@ def run_verification_pipeline(id_filepath, live_filepath):
     )
 
     document_id = str(uuid.uuid4())
+
+    # This exact dict is hashed onto the blockchain AND saved off-chain, so the
+    # record can be re-hashed later to prove it was not altered. No PII in it.
+    record_summary = {
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "decision": overall_decision,
+        "validation_status": validation_result["status"],
+        "tamper_status": tamper_result["status"],
+        "face_match_status": face_match_status,
+        "liveness_status": liveness_status,
+    }
     try:
-        blockchain_result = create_record(document_id, {
-            "decision": overall_decision,
-            "validation_status": validation_result["status"],
-            "tamper_status": tamper_result["status"],
-            "face_match_status": face_match_status,
-            "liveness_status": liveness_status,
-        })
+        blockchain_result = create_record(document_id, record_summary)
     except Exception as e:
         print(f"Blockchain recording failed: {e}")
         blockchain_result = {"tx_hash": None, "record_hash": None, "status": "Pending"}
+
+    if blockchain_result["status"] == "Recorded":
+        try:
+            save_record(
+                document_id,
+                record_summary,
+                blockchain_result["tx_hash"],
+                blockchain_result["record_hash"],
+            )
+        except Exception as e:
+            # The scan still succeeds, but this record cannot be verified later.
+            print(f"Saving the audit record failed: {e}")
 
     return {
         "document_id": document_id,
@@ -210,6 +229,29 @@ def scan():
 
     pipeline_result["filename"] = filename
     return render_template('results.html', result=pipeline_result)
+
+
+@app.route('/verify/<document_id>')
+@login_required
+def verify(document_id):
+    """Re-hash one stored record and compare it with the blockchain."""
+    return render_template(
+        'verify.html', document_id=document_id, result=verify_record(document_id)
+    )
+
+
+@app.route('/audit')
+@login_required
+def audit():
+    """List recent records, each checked against the blockchain."""
+    records = list_records(limit=25)
+    try:
+        w3 = get_w3()
+    except Exception:
+        w3 = None  # verify_record() reports "Ledger Offline" for each row
+    for record in records:
+        record["verification"] = verify_record(record["document_id"], w3=w3)
+    return render_template('audit.html', records=records)
 
 
 if __name__ == '__main__':
