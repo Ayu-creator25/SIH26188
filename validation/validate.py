@@ -208,6 +208,23 @@ _ID_LABELS = [
 _AADHAAR_PATTERN = re.compile(r'\b(\d{4}\s?\d{4}\s?\d{4})\b')
 _PASSPORT_PATTERN = re.compile(r'\b([A-PR-WY]\d{7})\b', re.IGNORECASE)
 
+# Aadhaar numbers are printed in groups ("1234 5678 9012"). A bare run of 12
+# digits - a college registration number, a phone number with country code -
+# is only treated as an Aadhaar candidate when the text also mentions Aadhaar
+# or UID. Without this, any ID that carries a 12-digit number of its own would
+# be flagged as an Aadhaar that "failed its checksum".
+_AADHAAR_CUES = re.compile(r'aadhaar|aadhar|\bUID(?:AI)?\b|आधार', re.IGNORECASE)
+
+
+def _find_aadhaar_number(text):
+    """Return the first Aadhaar-shaped regex match in the text, or None."""
+    has_cue = bool(_AADHAAR_CUES.search(text))
+    for match in _AADHAAR_PATTERN.finditer(text):
+        is_grouped = bool(re.search(r'\s', match.group(1)))
+        if is_grouped or has_cue:
+            return match
+    return None
+
 
 def _detect_fields(text):
     fields = {"name": False, "dob": False, "id_number": False}
@@ -236,7 +253,7 @@ def _detect_fields(text):
             fields["id_number"] = True
             break
     if not fields["id_number"]:
-        if _AADHAAR_PATTERN.search(text) or _PASSPORT_PATTERN.search(text):
+        if _find_aadhaar_number(text) or _PASSPORT_PATTERN.search(text):
             fields["id_number"] = True
 
     return fields
@@ -252,7 +269,7 @@ def _detect_format(text):
     formats = {"aadhaar": False, "passport": False}
     aadhaar_candidate_found = False
 
-    aadhaar_match = _AADHAAR_PATTERN.search(text)
+    aadhaar_match = _find_aadhaar_number(text)
     if aadhaar_match:
         digits_only = re.sub(r'\s', '', aadhaar_match.group(1))
         if len(digits_only) == 12:
