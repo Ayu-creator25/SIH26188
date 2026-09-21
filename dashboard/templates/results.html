@@ -8,7 +8,7 @@
 <body>
   <header class="topbar">
     <span class="topbar__mark">ID//SCREEN</span>
-    <span class="topbar__project">SIH26188 — Think Forge <a href="/logout" class="topbar__logout">Sign out</a></span>
+    <span class="topbar__project">SIH26188 — Think Forge <a href="/audit" class="topbar__logout">Audit log</a> <a href="/logout" class="topbar__logout">Sign out</a></span>
   </header>
 
   <main class="stage">
@@ -64,11 +64,19 @@
         <span class="hash-block__label">Record Hash (SHA-256)</span>
         <pre class="mono-block">{{ result.blockchain_record_hash }}</pre>
       </div>
+      <div class="hash-block">
+        <span class="hash-block__label">Document ID</span>
+        <pre class="mono-block">{{ result.document_id }}</pre>
+      </div>
+      <a href="/verify/{{ result.document_id }}" class="btn-secondary">Verify integrity</a>
     {% else %}
       <p class="subtext">Local blockchain wasn't reachable — no on-chain record was created for this scan.</p>
     {% endif %}
   </section>
 
+    {% if result.orientation_note %}
+      <p class="subtext">Image preparation: {{ result.orientation_note }}</p>
+    {% endif %}
     {% if result.tamper_details %}
       <p class="subtext">Tamper check detail: {{ result.tamper_details }}</p>
     {% endif %}

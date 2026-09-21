@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Integrity Check — SIH26188</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <span class="topbar__mark">ID//SCREEN</span>
+    <span class="topbar__project">SIH26188 — Think Forge <a href="/audit" class="topbar__logout">Audit log</a> <a href="/logout" class="topbar__logout">Sign out</a></span>
+  </header>
+
+  <main class="stage">
+    <h1>Integrity Check</h1>
+    <p class="subtext">Record: <code>{{ document_id }}</code></p>
+
+    {# Map each status to a colour class that already exists in style.css #}
+    {% set status_class = {
+      'INTACT': 'decision-panel--verified',
+      'TAMPERED': 'decision-panel--high-risk',
+      'CHAIN_RECORD_MISSING': 'decision-panel--suspicious'
+    }.get(result.status, 'decision-panel--pending') %}
+    <section class="panel decision-panel {{ status_class }}">
+      <span class="decision-panel__label">Integrity status</span>
+      <span class="decision-panel__value">{{ result.label }}</span>
+    </section>
+
+    <p class="subtext">{{ result.message }}</p>
+
+    {% if result.recomputed_hash %}
+      <section class="panel">
+        <h2>How the check works</h2>
+        <div class="hash-block">
+          <span class="hash-block__label">Hash recomputed from the stored record</span>
+          <pre class="mono-block">{{ result.recomputed_hash }}</pre>
+        </div>
+        <div class="hash-block">
+          <span class="hash-block__label">Hash anchored on the blockchain</span>
+          <pre class="mono-block">{{ result.onchain_hash or 'not available' }}</pre>
+        </div>
+        <div class="hash-block">
+          <span class="hash-block__label">Transaction hash</span>
+          <pre class="mono-block">{{ result.tx_hash }}</pre>
+        </div>
+      </section>
+    {% endif %}
+
+    <p class="subtext">
+      This proves the record was not changed after it was written. It does not
+      prove that the scanned document itself is genuine.
+    </p>
+
+    <a href="/audit" class="btn-secondary">Back to audit log</a>
+    <a href="/" class="btn-secondary">Scan another document</a>
+  </main>
+</body>
+</html>
