@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ocr'))
 from scan import scan_document
+from orientation import correct_orientation
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'validation'))
 from validate import validate_fields
@@ -91,7 +92,17 @@ def determine_overall_decision(validation_status, tamper_status, face_match_stat
 
 
 def run_verification_pipeline(id_filepath, live_filepath):
-    extracted_text = scan_document(id_filepath)
+    # Phone photos of ID cards are often sideways. Straighten the card first so
+    # OCR and face matching see it upright. Tamper detection keeps the ORIGINAL
+    # file, because error level analysis depends on its original compression.
+    try:
+        orientation = correct_orientation(id_filepath)
+    except Exception as e:
+        print(f"Orientation correction failed: {e}")
+        orientation = {"path": id_filepath, "note": ""}
+    working_filepath = orientation["path"]
+
+    extracted_text = scan_document(working_filepath)
     validation_result = validate_fields(extracted_text)
     tamper_result = check_tampering(id_filepath)
 
@@ -105,7 +116,7 @@ def run_verification_pipeline(id_filepath, live_filepath):
             liveness_status = "Pending"
             liveness_details = "Liveness check could not be completed."
 
-        face_result = verify_face(id_filepath, live_filepath)
+        face_result = verify_face(working_filepath, live_filepath)
         face_match_status = FACE_STATUS_DISPLAY.get(face_result["status"], "Pending")
         face_match_details = face_result["message"]
     else:
@@ -150,6 +161,7 @@ def run_verification_pipeline(id_filepath, live_filepath):
 
     return {
         "document_id": document_id,
+        "orientation_note": orientation.get("note", ""),
         "extracted_text": extracted_text,
         "validation_status": validation_result["status"],
         "validation_details": validation_result["details"],

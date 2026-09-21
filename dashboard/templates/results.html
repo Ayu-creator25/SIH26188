@@ -74,6 +74,9 @@
     {% endif %}
   </section>
 
+    {% if result.orientation_note %}
+      <p class="subtext">Image preparation: {{ result.orientation_note }}</p>
+    {% endif %}
     {% if result.tamper_details %}
       <p class="subtext">Tamper check detail: {{ result.tamper_details }}</p>
     {% endif %}
