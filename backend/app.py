@@ -19,6 +19,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'tamper_detection'
 from tamper_check import check_tampering
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'blockchain'))
+from explanation import explain_decision
 from hash_record import create_record
 from audit_store import get_w3, list_records, save_record, verify_record
 
@@ -67,30 +68,6 @@ def is_allowed_file(filename):
     return ext in ALLOWED_EXTENSIONS
 
 
-def determine_overall_decision(validation_status, tamper_status, face_match_status, liveness_status):
-    """
-    Combine the four independent signals into one final verdict:
-    Verified / Suspicious / High Risk.
-
-    Rule: "worst signal wins". A hard failure on any check means
-    High Risk. A check that couldn't be completed means Suspicious.
-    Only a full clean pass on all four counts as Verified.
-    """
-    if tamper_status == "Suspicious":
-        return "High Risk"
-    if validation_status == "Invalid":
-        return "High Risk"
-    if face_match_status == "No Match":
-        return "High Risk"
-    if liveness_status == "Spoof Detected":
-        return "High Risk"
-
-    if "Pending" in (validation_status, tamper_status, face_match_status, liveness_status):
-        return "Suspicious"
-
-    return "Verified"
-
-
 def run_verification_pipeline(id_filepath, live_filepath):
     # Phone photos of ID cards are often sideways. Straighten the card first so
     # OCR and face matching see it upright. Tamper detection keeps the ORIGINAL
@@ -125,9 +102,16 @@ def run_verification_pipeline(id_filepath, live_filepath):
         face_match_status = "Pending"
         face_match_details = "No live photo captured."
 
-    overall_decision = determine_overall_decision(
-        validation_result["status"], tamper_result["status"], face_match_status, liveness_status
+    explanation = explain_decision(
+        validation_result["status"], tamper_result["status"], face_match_status, liveness_status,
+        details={
+            "validation": validation_result["details"],
+            "tamper": tamper_result["details"],
+            "face": face_match_details,
+            "liveness": liveness_details,
+        },
     )
+    overall_decision = explanation["decision"]
 
     document_id = str(uuid.uuid4())
 
@@ -140,6 +124,7 @@ def run_verification_pipeline(id_filepath, live_filepath):
         "tamper_status": tamper_result["status"],
         "face_match_status": face_match_status,
         "liveness_status": liveness_status,
+        "reason_codes": explanation["reason_codes"],
     }
     try:
         blockchain_result = create_record(document_id, record_summary)
@@ -173,6 +158,9 @@ def run_verification_pipeline(id_filepath, live_filepath):
         "liveness_status": liveness_status,
         "liveness_details": liveness_details,
         "overall_decision": overall_decision,
+        "recommended_action": explanation["action"],
+        "recommended_action_text": explanation["action_text"],
+        "reasons": explanation["reasons"],
         "blockchain_tx_hash": blockchain_result["tx_hash"],
         "blockchain_record_hash": blockchain_result["record_hash"],
         "blockchain_status": blockchain_result["status"],

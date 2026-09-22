@@ -153,3 +153,17 @@ h1 { font-size: 1.8rem; margin-bottom: 4px; }
   color: white;
   text-decoration: underline;
 }
+
+.reason {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.reason:last-child { border-bottom: none; }
+.reason__text { font-size: 0.95rem; }
+.reason__evidence { font-size: 0.8rem; color: var(--muted); font-family: var(--mono); }
+.reason--high-risk .reason__text { color: var(--high-risk); font-weight: 600; }
+.reason--suspicious .reason__text { color: var(--suspicious); font-weight: 600; }
+.reason--verified .reason__text { color: var(--verified); font-weight: 600; }

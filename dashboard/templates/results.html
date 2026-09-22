@@ -84,9 +84,23 @@
       <p class="subtext">Liveness check detail: {{ result.liveness_details }}</p>
     {% endif %}
 
-    <section class="panel decision-panel decision-panel--pending">
-      <span class="decision-panel__label">Overall Decision</span>
+    {% set decision_class = {'Verified': 'decision-panel--verified', 'Suspicious': 'decision-panel--suspicious', 'High Risk': 'decision-panel--high-risk'}.get(result.overall_decision, 'decision-panel--pending') %}
+    <section class="panel decision-panel {{ decision_class }}">
+      <span class="decision-panel__label">Overall Decision — {{ result.recommended_action }}</span>
       <span class="decision-panel__value">{{ result.overall_decision }}</span>
+    </section>
+    <p class="subtext">{{ result.recommended_action_text }} An officer makes the final decision.</p>
+
+    <section class="panel">
+      <h2>Why This Decision</h2>
+      {% for reason in result.reasons %}
+        <div class="reason reason--{{ reason.level }}">
+          <span class="reason__text">{{ reason.text }}</span>
+          {% if reason.evidence %}
+            <span class="reason__evidence">{{ reason.evidence }}</span>
+          {% endif %}
+        </div>
+      {% endfor %}
     </section>
 
     <a href="/" class="btn-secondary">Scan Another Document</a>
