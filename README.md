@@ -1,6 +1,6 @@
-# SIH26188 — AI-Based Fake Identity and Document Screening System
+# BorderShield AI — AI-Based Fake Identity and Document Screening System (SIH26188)
 
-**Team: Think Forge** | Smart India Hackathon 2026
+**Team: BorderShield009** | Smart India Hackathon 2026 | Problem Statement SIH26188 | Team ID 176269
 
 An AI + blockchain pipeline that screens ID documents (passport, Aadhaar, university ID, etc.) for authenticity. Every scan runs OCR extraction, field validation, tamper detection, face verification and liveness (anti-spoofing) detection, combines them into one explained verdict, and writes a zero-PII, tamper-evident audit record to a local blockchain that can be independently re-verified at any time. The dashboard is protected by a login.
 
@@ -20,6 +20,21 @@ An AI + blockchain pipeline that screens ID documents (passport, Aadhaar, univer
 | Server-side login gate | Formal accuracy/false-positive evaluation on a labelled dataset |
 
 Everything in the left column is real, running code with committed unit tests — see [Module reference](#module-reference) for exactly which test file covers which claim. Nothing in this README describes a feature that isn't in the repository.
+
+
+### Prototype vs proposed architecture
+
+Our SIH submission (Slide 3) describes the full proposed system. This repository is the working prototype of its core: the AI verification pipeline and the blockchain integrity trail.
+
+| Layer | Proposed architecture (SIH deck) | This prototype |
+|---|---|---|
+| Frontend | React | Server-rendered HTML/CSS/JS |
+| Backend | FastAPI | Flask |
+| Database | PostgreSQL | JSON records on local disk (`data/audit_records/`) |
+| Blockchain | Permissioned, Ethereum-based | Ganache (local Ethereum) via Web3.py, plain transaction |
+| Access control | Role-based (RBAC) | One shared demo login (server-side session) |
+| Deployment | Docker | Local run |
+| Not yet built | Offline-first sync, malware scan on upload, AES-256 at rest, login rate limiting | — |
 
 ---
 
@@ -429,18 +444,17 @@ python tamper_detection/test_tamper_check.py
 
 ## Troubleshooting
 
-### "WinError 4551" or Windows Security says "Part of this app has been blocked"
+### "DLL load failed … An Application Control policy has blocked this file", "WinError 4551", or "Part of this app has been blocked"
 
-Caused by Windows 11's **Smart App Control** blocking an unsigned native file — this has been seen on `torch`'s DLLs and on `scipy`'s `_sparsetools.pyd` (a `scikit-image` dependency used by tamper detection). It is not a bug in this project.
+Caused by Windows 11's **Smart App Control** blocking an unsigned native file. It has been seen on `torch`'s DLLs, on `scipy`'s `_sparsetools.pyd` and on `ml_dtypes`' `_ml_dtypes_ext.pyd` (a TensorFlow dependency that stops the backend from starting). It is not a bug in this project.
 
-1. First, just dismiss the popup and try the action again (upload/scan) — in testing this has been **non-fatal**: the blocked accelerated code path is skipped and the feature still completes, just slightly slower.
-2. If a feature does fail because of it: confirm you're installing the pinned versions in `requirements.txt` (`pip uninstall torch torchvision -y`, then `pip install -r requirements.txt` again), or install via conda instead:
-```bash
-   conda create -n sih python=3.12
-   conda activate sih
-   pip install -r requirements.txt
-```
-3. Last resort: Windows Security → App & browser control → turn off Smart App Control. **One-way toggle**, only reversible via a full Windows reset. Avoid on shared machines.
+1. If it is a popup only, dismiss it and retry. Some blocks are non-fatal and the feature still completes.
+2. If the app fails to start with `DLL load failed`, the block is fatal. Turning Smart App Control off is what fixes it, but **turning it off alone does not clear files that were already blocked**. Do this, one command at a time:
+   - Windows Security → App & browser control → Smart App Control → **Off**. This is a one-way toggle, only reversible via a full Windows reset, so avoid it on shared machines.
+   - Close every terminal that has the venv active, then delete the venv: `rm -rf venv`
+   - Recreate it and reinstall: `py -3.12 -m venv venv`, then activate it, then `pip install -r requirements.txt`
+   - Test: `python -c "import tensorflow as tf; print(tf.__version__)"`
+3. Reinstalling only the blocked package (`pip uninstall` / `pip install`) does **not** clear the block. The whole venv has to be rebuilt.
 
 ### "ModuleNotFoundError: No module named 'cv2'"
 
