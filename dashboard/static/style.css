@@ -21,7 +21,10 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--
   display: flex; justify-content: space-between; align-items: center;
   padding: 16px 32px; background: var(--navy); color: white;
 }
-.topbar__mark { font-family: var(--mono); font-weight: 700; letter-spacing: 0.05em; }
+.topbar__mark {
+  font-family: var(--mono); font-weight: 700; letter-spacing: 0.05em;
+  color: white; text-decoration: none;
+}
 .topbar__project { font-size: 0.85rem; opacity: 0.8; }
 
 .stage { max-width: 720px; margin: 0 auto; padding: 48px 24px; }
