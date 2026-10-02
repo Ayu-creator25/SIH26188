@@ -3,7 +3,7 @@ from werkzeug.utils import secure_filename
 import os
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ocr'))
 from scan import scan_document
@@ -45,6 +45,12 @@ if not app.secret_key:
 
 # Stops other websites from sending our cookie with cross-site requests.
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+# Idle timeout: a login expires after this many minutes with no activity.
+# Flask re-issues the cookie on every request, so the clock restarts each
+# time the officer does something. For testing, run the app with
+# SESSION_TIMEOUT_MINUTES=1 instead of editing this file.
+SESSION_TIMEOUT_MINUTES = int(os.environ.get('SESSION_TIMEOUT_MINUTES', '15'))
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=SESSION_TIMEOUT_MINUTES)
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'data', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -190,6 +196,7 @@ def login():
         if check_credentials(username, password):
             reset_login_attempts(ip_address)
             session.clear()  # start from a fresh session
+            session.permanent = True  # apply the idle timeout set above
             session['logged_in'] = True  # only a flag, never the password
             return redirect(url_for('index'))
 
