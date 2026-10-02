@@ -27,7 +27,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'liveness'))
 from liveness_check import check_liveness
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'auth'))
-from auth import check_credentials, login_required
+from auth import check_credentials, login_required, is_locked_out, record_failed_login, reset_login_attempts
+
 
 app = Flask(
     __name__,
@@ -170,16 +171,33 @@ def run_verification_pipeline(id_filepath, live_filepath):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Show the login form (GET) or check the submitted login (POST)."""
+    # request.remote_addr is the visitor's IP as Flask's dev server sees it.
+    # Good enough for this single-instance prototype; a real deployment
+    # behind a proxy would need to read a forwarded-for header instead.
+    ip_address = request.remote_addr
+
     if request.method == 'POST':
+        locked, seconds_remaining = is_locked_out(ip_address)
+        if locked:
+            minutes_remaining = max(1, seconds_remaining // 60)
+            return render_template(
+                'login.html',
+                error=f"Too many failed attempts. Try again in about {minutes_remaining} minute(s)."
+            ), 429
+
         username = request.form.get('username', '')
         password = request.form.get('password', '')
         if check_credentials(username, password):
+            reset_login_attempts(ip_address)
             session.clear()  # start from a fresh session
             session['logged_in'] = True  # only a flag, never the password
             return redirect(url_for('index'))
+
+        record_failed_login(ip_address)
         return render_template(
             'login.html', error="Invalid username or password."
         ), 401
+
     return render_template('login.html')
 
 

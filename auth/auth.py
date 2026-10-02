@@ -9,6 +9,8 @@ All secrets are read from environment variables (loaded from the
 git-ignored .env file) -- nothing sensitive is hard-coded here.
 """
 
+import time
+from threading import Lock
 import hmac
 import os
 from functools import wraps
@@ -22,6 +24,50 @@ from flask import redirect, session, url_for
 # the platform's real environment variables are used instead.
 _ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_ENV_PATH)
+
+
+# --- Login rate limiting (in-memory, per IP address) ---
+# Not shared across multiple server processes -- fine for a single-instance
+# prototype. A production deployment should move this to Redis or the
+# database instead (see the production-rebuild roadmap, Phase 2).
+
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_SECONDS = 300  # 5 minutes
+
+_login_attempts = {}  # ip -> {"count": int, "locked_until": float or None}
+_login_attempts_lock = Lock()
+
+
+def is_locked_out(ip_address):
+    """Return (True, seconds_remaining) if this IP is currently locked out,
+    otherwise (False, 0)."""
+    with _login_attempts_lock:
+        record = _login_attempts.get(ip_address)
+        if not record or not record["locked_until"]:
+            return False, 0
+
+        seconds_remaining = record["locked_until"] - time.time()
+        if seconds_remaining <= 0:
+            # Lockout has expired -- clear it so the next attempt is fresh.
+            _login_attempts.pop(ip_address, None)
+            return False, 0
+
+        return True, int(seconds_remaining)
+
+
+def record_failed_login(ip_address):
+    """Count one failed attempt for this IP. Locks it out if the limit is hit."""
+    with _login_attempts_lock:
+        record = _login_attempts.setdefault(ip_address, {"count": 0, "locked_until": None})
+        record["count"] += 1
+        if record["count"] >= MAX_FAILED_ATTEMPTS:
+            record["locked_until"] = time.time() + LOCKOUT_SECONDS
+
+
+def reset_login_attempts(ip_address):
+    """Clear an IP's failed-attempt count after a successful login."""
+    with _login_attempts_lock:
+        _login_attempts.pop(ip_address, None)
 
 
 def check_credentials(username, password):
