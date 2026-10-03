@@ -11,13 +11,13 @@ An AI + blockchain pipeline that screens ID documents (passport, Aadhaar, univer
 | Built and working | Not built (future scope) |
 |---|---|
 | OCR (EasyOCR, English + Hindi) | PDF document upload (JPG/PNG only) |
-| Rule-based field validation (Aadhaar checksum, passport MRZ, dates) | Encryption at rest for uploaded images |
+| Rule-based field validation (Aadhaar checksum, passport MRZ, dates); other document types are reported as Unsupported | Encryption at rest for uploaded images |
 | Tamper detection (Error Level Analysis) | Per-teammate login accounts |
-| Face match + liveness/anti-spoofing (DeepFace) | Login rate limiting / brute-force protection |
+| Face match + liveness/anti-spoofing (DeepFace) | Malware scan of uploaded files |
 | Automatic orientation correction for sideways photos | Cloud-based (LLM) explanation layer — kept local by design |
 | Explainable decision fusion with a recommended action | Smart contract / multi-node blockchain |
 | Tamper-evident blockchain audit trail, **independently re-verifiable** | Public deployment (HTTPS, WSGI server) |
-| Server-side login gate | Formal accuracy/false-positive evaluation on a labelled dataset |
+| Server-side login gate with login rate limiting and an idle session timeout | Formal accuracy/false-positive evaluation on a labelled dataset |
 
 Everything in the left column is real, running code with committed unit tests — see [Module reference](#module-reference) for exactly which test file covers which claim. Nothing in this README describes a feature that isn't in the repository.
 
@@ -32,9 +32,9 @@ Our SIH submission (Slide 3) describes the full proposed system. This repository
 | Backend | FastAPI | Flask |
 | Database | PostgreSQL | JSON records on local disk (`data/audit_records/`) |
 | Blockchain | Permissioned, Ethereum-based | Ganache (local Ethereum) via Web3.py, plain transaction |
-| Access control | Role-based (RBAC) | One shared demo login (server-side session) |
+| Access control | Role-based (RBAC) | One shared demo login (server-side session, 15-minute idle timeout, login rate limiting) |
 | Deployment | Docker | Local run |
-| Not yet built | Offline-first sync, malware scan on upload, AES-256 at rest, login rate limiting | — |
+| Not yet built | Offline-first sync, malware scan on upload, AES-256 at rest | — |
 
 ---
 
@@ -83,7 +83,7 @@ Four independent checks feed the final decision:
 
 | Check | Module | Result shown on the dashboard |
 |---|---|---|
-| Validation | `validation/` | Valid / Invalid / Pending |
+| Validation | `validation/` | Valid / Invalid / Unsupported / Pending |
 | Tamper Check | `tamper_detection/` | Clean / Suspicious |
 | Face Match | `face_verify/` | Match / No Match / Pending |
 | Liveness | `liveness/` | Live / Spoof Detected / Pending |
@@ -93,7 +93,7 @@ Four independent checks feed the final decision:
 | Overall decision | Recommended action | When |
 |---|---|---|
 | **High Risk** | Escalate | Any hard failure: tamper is Suspicious, validation is Invalid, face is No Match, or liveness is Spoof Detected |
-| **Suspicious** | Officer review | No hard failure, but at least one check is Pending (it could not complete — for example no live photo was captured, an unsupported document type, or no face was found) |
+| **Suspicious** | Officer review | No hard failure, but at least one check is Pending or Unsupported (it could not complete — for example no live photo was captured, no face was found, or the document is not an Aadhaar or passport) |
 | **Verified** | Clear | All four checks passed cleanly |
 
 Because Face Match and Liveness both need the live photo, **a scan without a live photo can never be Verified** — it ends as Suspicious at best. See [Why This Decision](#why-this-decision-explainable-results) for how each verdict is explained.
@@ -314,6 +314,8 @@ Every protected route asks one question: does the session say logged in? If yes,
 - Every protected route re-checks the session on the server, so calling a route directly (browser, `curl`, a script) without logging in is refused before anything is saved.
 - It fails closed: if `AUTH_USERNAME` or `AUTH_PASSWORD` is missing, nobody can log in.
 - The app refuses to start if `SECRET_KEY` is missing.
+- Failed logins are rate-limited: after 5 wrong attempts from the same IP address, further attempts are blocked for 5 minutes (HTTP 429), even with the correct password. The counter is kept in server memory, so restarting the server clears it.
+- A login expires after 15 minutes without activity; every request restarts the clock.
 
 **Configuration (`.env`)**
 
@@ -322,6 +324,7 @@ Every protected route asks one question: does the session say logged in? If yes,
 | `SECRET_KEY` | Signs the session cookie so it cannot be forged. Long and random |
 | `AUTH_USERNAME` | Demo login username |
 | `AUTH_PASSWORD` | Demo login password |
+| `SESSION_TIMEOUT_MINUTES` | Optional. Minutes of inactivity before a login expires (default 15) |
 
 `.env.example` is committed with placeholder values only. **Never put real values in `.env.example`**, and never commit `.env`.
 
@@ -370,7 +373,7 @@ SIH26188/
 | `face_verify/` | Face match (ID photo vs. live capture) | ✅ Done, integrated into dashboard |
 | `liveness/` | Anti-spoofing check on the live capture (DeepFace + MiniFASNet) | ✅ Done, integrated into pipeline and results page |
 | `blockchain/` | SHA-256 hash, Ganache audit trail, and re-verification | ✅ Done, integrated into pipeline, results page and audit log |
-| `auth/` | Dashboard login (server-side session, `.env` credentials) | ✅ Done, protects every data-bearing route |
+| `auth/` | Dashboard login (server-side session, `.env` credentials, login rate limiting, idle timeout) | ✅ Done, protects every data-bearing route |
 | `data/` | Test images and audit records (never commit real documents) | n/a |
 
 > Team ownership by name has been removed from this table pending confirmation of correct spelling for all contributors — see the note at the end of this document.
@@ -385,7 +388,7 @@ SIH26188/
 |---|---|---|
 | `ocr/orientation.py` | `correct_orientation(id_filepath)` | Dict with `path` (image to use), `angle`, `changed`, `note` |
 | `ocr/scan.py` | `scan_document(image_path)` | Extracted text (string) |
-| `validation/validate.py` | `validate_fields(extracted_text)` | Dict with `status` (Valid / Invalid / Pending), `details`, `checks` |
+| `validation/validate.py` | `validate_fields(extracted_text)` | Dict with `status` (Valid / Invalid / Unsupported / Pending), `details`, `checks` |
 | `tamper_detection/tamper_check.py` | `check_tampering(id_filepath)` | Dict with `status` (Clean / Suspicious), `details` |
 | `face_verify/face_match.py` | `verify_face(id_filepath, live_filepath)` | Dict with `status` (MATCH / NO_MATCH / ERROR), `message` |
 | `liveness/liveness_check.py` | `check_liveness(live_filepath)` | Dict with `is_live` (True / False / None), `confidence`, `error` |
@@ -456,6 +459,10 @@ Caused by Windows 11's **Smart App Control** blocking an unsigned native file. I
    - Test: `python -c "import tensorflow as tf; print(tf.__version__)"`
 3. Reinstalling only the blocked package (`pip uninstall` / `pip install`) does **not** clear the block. The whole venv has to be rebuilt.
 
+### "Too many failed attempts. Try again in about N minute(s)."
+
+Login rate limiting: after 5 wrong passwords from the same IP address, logins are blocked for 5 minutes, even with the correct password. Wait it out, or stop the server (`Ctrl+C`) and start it again, which clears the counter.
+
 ### "ModuleNotFoundError: No module named 'cv2'"
 
 Caused by a conflict between `opencv-python` and `opencv-python-headless`. Both provide the same `cv2` module and corrupt each other's files if both get installed. `deepface` declares a dependency on plain `opencv-python`, but this project uses the headless version everywhere else. If you hit this after installing:
@@ -507,10 +514,11 @@ Your virtual environment isn't active in this terminal. Run the activation comma
 ## Known limitations
 
 - **No formal accuracy evaluation yet.** The system has been exercised with unit tests (see [Module reference](#module-reference)) and manual scans against sample documents, but no false-positive/false-negative rate has been measured on a labelled dataset. Treat demo outcomes as illustrative, not as a benchmarked accuracy figure.
-- **One shared demo login.** There are no per-user accounts and no rate limiting on failed logins. This is fine for a local demo but must be revisited before the app is exposed publicly.
-- **Development server.** `python backend/app.py` runs Flask's development server with debug on. Use it for local demos only. A public deployment should use `gunicorn` (already in `requirements.txt`), turn debug off, and mark the session cookie as Secure.
+- **One shared demo login.** There are no per-user accounts. Failed logins are rate-limited per IP address and a login expires after 15 idle minutes, but the lockout counter lives in server memory (it resets when the server restarts and is not shared between processes). This is fine for a local demo but must be revisited before the app is exposed publicly.
+- **Development server.** `python backend/app.py` runs Flask's development server (debug mode is off). Use it for local demos only. A public deployment should use `gunicorn` (already in `requirements.txt`) and mark the session cookie as Secure.
 - **Blockchain is local.** The audit trail and integrity check need a Ganache node on the same machine. Without it, new scans show ledger status Pending, and existing records show integrity status "Ledger Offline" until it's running again.
 - **A bare 12-digit number is only checked as an Aadhaar number when it is printed in groups (e.g. "1234 5678 9012") or the text mentions Aadhaar/UID.** This avoids false positives on other 12-digit numbers (e.g. a college registration number), at the cost of not checksum-validating a fabricated Aadhaar number typed as one unbroken run of digits with no label.
+- **Only Aadhaar and passport are validated.** Other documents (college ID, PAN card, driving licence and so on) are reported as Unsupported and sent to officer review instead of being validated.
 - **JPG/PNG only.** PDF upload is not implemented.
 - **Windows-generated requirements.** `requirements.txt` includes Windows-only packages (`pywin32`, `win-inet-pton`), so installing on Linux hosting needs those lines removed.
 - **Image quality matters.** Blurry or low-resolution scans can produce unreadable OCR text. When a check cannot complete it shows Pending and the overall decision becomes Suspicious rather than Verified — the system is deliberately conservative rather than guessing.

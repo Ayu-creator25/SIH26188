@@ -39,11 +39,11 @@ def test_invalid_aadhaar_wrong_digits():
 
 
 def test_missing_required_fields():
-    """Test 4: Missing required fields — expect Invalid or Pending."""
+    """Test 4: Text with no document fields — expect Unsupported."""
     text = "Some random text without any document fields"
     result = validate_fields(text)
-    assert result["status"] in ("Invalid", "Pending")
-    print("Test 4 PASSED: Missing fields handled correctly")
+    assert result["status"] == "Unsupported"
+    print("Test 4 PASSED: Unrecognised text reported as Unsupported")
 
 
 def test_mrz_valid_checksum():
@@ -130,6 +130,30 @@ def test_name_detected_without_label():
     print("Test 14 PASSED: Name detected without an explicit label")
 
 
+def test_college_id_is_unsupported():
+    """Test 15: A college ID card (not Aadhaar or passport) must be Unsupported."""
+    text = "Test University\nIdentity Card\nName\nTEST STUDENT\nBranch\nCSE\nRegd. No.\n250000000000\nValidity\n2025\n2029"
+    result = validate_fields(text)
+    assert result["status"] == "Unsupported"
+    print("Test 15 PASSED: College ID reported as Unsupported")
+
+
+def test_name_and_date_alone_are_not_valid():
+    """Test 16: A name plus a valid date must not earn 'Valid' on a non-Aadhaar/passport card (e.g. PAN)."""
+    text = "INCOME TAX DEPARTMENT\nPermanent Account Number Card\nABCDE1234F\nName\nTEST USER\n01/01/2000"
+    result = validate_fields(text)
+    assert result["status"] == "Unsupported"
+    print("Test 16 PASSED: Name and date alone do not produce Valid")
+
+
+def test_aadhaar_cue_word_keeps_document_supported():
+    """Test 17: A card that names itself Aadhaar is not Unsupported, even if the number was unreadable."""
+    text = "Government of India\nTest User\nDOB: 15/08/1995\nAadhaar"
+    result = validate_fields(text)
+    assert result["status"] != "Unsupported"
+    print("Test 17 PASSED: Aadhaar cue word keeps the document supported")
+
+
 def run_all_tests():
     """Run all test cases."""
     print("=" * 50)
@@ -152,6 +176,9 @@ def run_all_tests():
         test_pincode_not_treated_as_date,
         test_aadhaar_checksum_failure_marks_invalid,
         test_name_detected_without_label,
+        test_college_id_is_unsupported,
+        test_name_and_date_alone_are_not_valid,
+        test_aadhaar_cue_word_keeps_document_supported,
     ]
 
     passed = 0

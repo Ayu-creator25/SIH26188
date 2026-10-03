@@ -21,7 +21,7 @@
     </section>
 
     <section class="panel status-grid">
-      {% set validation_class = {'Valid': 'status-card--verified', 'Invalid': 'status-card--high-risk'}.get(result.validation_status, 'status-card--pending') %}
+      {% set validation_class = {'Valid': 'status-card--verified', 'Invalid': 'status-card--high-risk', 'Unsupported': 'status-card--suspicious'}.get(result.validation_status, 'status-card--pending') %}
       <div class="status-card {{ validation_class }}">
         <span class="status-card__label">Validation</span>
         <span class="status-card__value">{{ result.validation_status }}</span>

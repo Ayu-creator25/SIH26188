@@ -215,6 +215,15 @@ _PASSPORT_PATTERN = re.compile(r'\b([A-PR-WY]\d{7})\b', re.IGNORECASE)
 # be flagged as an Aadhaar that "failed its checksum".
 _AADHAAR_CUES = re.compile(r'aadhaar|aadhar|\bUID(?:AI)?\b|आधार', re.IGNORECASE)
 
+# Only Aadhaar and passport documents have field rules in this module. A
+# document counts as one of those when the text carries an Aadhaar-shaped
+# number, a passport number, an MRZ, or a plain cue word. Anything else
+# (college ID, PAN card, driving licence...) is reported as "Unsupported"
+# instead of being "validated" on a name and a date alone.
+_SUPPORTED_DOC_CUES = re.compile(
+    r'aadhaar|aadhar|\bUID(?:AI)?\b|आधार|\bpassport\b', re.IGNORECASE
+)
+
 
 def _find_aadhaar_number(text):
     """Return the first Aadhaar-shaped regex match in the text, or None."""
@@ -347,23 +356,27 @@ def validate_fields(extracted_text):
         "mrz_valid": mrz_valid,
     }
 
-    has_any_format = any(formats.values())
     has_any_date = len(dates) > 0
     aadhaar_checksum_failed = aadhaar_candidate_found and not formats["aadhaar"]
 
-    # A bare name-fallback match alone isn't strong enough evidence that
-    # this is really an ID document - almost any sentence has 2+ words.
-    # dob/id_number/format/date/MRZ signals are what actually justify
-    # rendering a verdict; a name-only match still routes to "Pending".
-    has_meaningful_signal = (
-        fields["dob"] or fields["id_number"] or has_any_format
-        or has_any_date or mrz_valid is not None or aadhaar_candidate_found
+    # Only Aadhaar and passport documents have rules here. If nothing in the
+    # text points to either one, say so rather than "validating" the wrong
+    # document: a name and a valid-looking date appear on almost any ID card,
+    # so they must not earn a "Valid" on their own.
+    is_supported_document = (
+        aadhaar_candidate_found
+        or formats["passport"]
+        or mrz_valid is not None
+        or bool(_SUPPORTED_DOC_CUES.search(text))
     )
 
-    if not has_meaningful_signal:
+    if not is_supported_document:
         return {
-            "status": "Pending",
-            "details": "No recognizable document fields detected in extracted text.",
+            "status": "Unsupported",
+            "details": (
+                "Document type not supported: no Aadhaar number, passport "
+                "number or MRZ was found."
+            ),
             "checks": checks,
         }
 
