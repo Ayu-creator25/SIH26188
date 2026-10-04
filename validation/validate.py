@@ -322,6 +322,14 @@ def validate_fields(extracted_text):
     """
     Validate extracted OCR text against document rules. Provides signals
     only - this does NOT determine document authenticity on its own.
+
+    Status:
+        Valid        an Aadhaar number, passport number or MRZ was verified
+                     and nothing failed
+        Invalid      a check failed (bad checksum, impossible date, bad MRZ)
+        Unsupported  not an Aadhaar or passport (nothing points to either)
+        Pending      no text was read, or an Aadhaar/passport whose ID number
+                     could not be read or verified
     """
     if not extracted_text or not extracted_text.strip():
         return {
@@ -404,8 +412,24 @@ def validate_fields(extracted_text):
     if aadhaar_checksum_failed:
         all_pass = False
 
+    # A document that names itself Aadhaar or passport but yields no verified
+    # identifier (number unreadable or malformed, no valid MRZ) has not really
+    # been validated. Never call that Valid: report Pending so an officer looks.
+    identifier_verified = formats["aadhaar"] or formats["passport"] or mrz_valid is True
+
+    if not all_pass:
+        status = "Invalid"
+    elif not identifier_verified:
+        status = "Pending"
+        details.append(
+            "ID number could not be verified: no valid Aadhaar number, "
+            "passport number or MRZ was found"
+        )
+    else:
+        status = "Valid"
+
     return {
-        "status": "Valid" if all_pass else "Invalid",
+        "status": status,
         "details": ". ".join(details) + ".",
         "checks": checks,
     }

@@ -147,11 +147,27 @@ def test_name_and_date_alone_are_not_valid():
 
 
 def test_aadhaar_cue_word_keeps_document_supported():
-    """Test 17: A card that names itself Aadhaar is not Unsupported, even if the number was unreadable."""
+    """Test 17: A card that names itself Aadhaar but whose number is unreadable is Pending: supported, not verified."""
     text = "Government of India\nTest User\nDOB: 15/08/1995\nAadhaar"
     result = validate_fields(text)
-    assert result["status"] != "Unsupported"
-    print("Test 17 PASSED: Aadhaar cue word keeps the document supported")
+    assert result["status"] == "Pending"
+    print("Test 17 PASSED: Aadhaar card with no readable number is Pending")
+
+
+def test_malformed_aadhaar_number_is_not_valid():
+    """Test 18: An Aadhaar-labelled number with the wrong digit count must not earn Valid."""
+    text = "Name: TEST USER\nDOB: 15/08/1995\nAadhaar: 1234 5678 90"
+    result = validate_fields(text)
+    assert result["status"] == "Pending"
+    print("Test 18 PASSED: Malformed Aadhaar number is not Valid")
+
+
+def test_valid_mrz_counts_as_a_verified_identifier():
+    """Test 19: A passport MRZ line with correct check digits is enough to reach Valid."""
+    text = "L898902C36UTO7408122F1204159ZE184226B<<<<<10"
+    result = validate_fields(text)
+    assert result["status"] == "Valid"
+    print("Test 19 PASSED: Valid MRZ reaches Valid")
 
 
 def run_all_tests():
@@ -179,6 +195,8 @@ def run_all_tests():
         test_college_id_is_unsupported,
         test_name_and_date_alone_are_not_valid,
         test_aadhaar_cue_word_keeps_document_supported,
+        test_malformed_aadhaar_number_is_not_valid,
+        test_valid_mrz_counts_as_a_verified_identifier,
     ]
 
     passed = 0

@@ -43,8 +43,8 @@ _HARD_FAILURES = [
 # Reasons for a check that could not be completed, in reporting order.
 _PENDING_REASONS = [
     ("validation", "VALIDATION_PENDING",
-     "No text could be read from the document image, so the ID fields could "
-     "not be validated. Try a clearer photo."),
+     "The document's ID number could not be read or verified, so the ID fields "
+     "could not be validated. Try a clearer photo."),
     ("tamper", "TAMPER_PENDING",
      "The tamper check could not be completed."),
     ("face", "FACE_PENDING",
