@@ -50,14 +50,14 @@ def test_registration_number_is_not_mistaken_for_an_aadhaar():
     """The bug: the card's 12-digit registration number failed the Aadhaar checksum."""
     assert not _verhoeff_valid("240101123456")  # would have been flagged before
     result = validate_fields(UNIVERSITY_ID_TEXT)
-    assert result["status"] == "Pending"
+    assert result["status"] == "Unsupported"  # a college ID is not an Aadhaar or passport
     assert "FAILED" not in result["details"]
     assert result["checks"]["format_valid"]["aadhaar"] is False
 
 
 def test_bare_twelve_digits_without_a_cue_are_ignored():
     for text in (BAD, GOOD, "Regd. No. " + BAD, "919876543210"):
-        assert validate_fields(text)["status"] == "Pending"
+        assert validate_fields(text)["status"] == "Unsupported"
 
 
 def test_grouped_valid_aadhaar_is_valid():
@@ -103,5 +103,6 @@ def test_other_signals_are_untouched():
     """Passport numbers, dates and an invalid date still behave as before."""
     passport = validate_fields("Passport No: P1234567\nDOB: 01/01/2000")
     assert passport["checks"]["format_valid"]["passport"] is True
-    assert validate_fields("Name: X\nDOB: 31/02/2001")["status"] == "Invalid"
+    # An impossible date is still caught on a document that names itself Aadhaar.
+    assert validate_fields("Name: X\nAadhaar\nDOB: 31/02/2001")["status"] == "Invalid"
     assert validate_fields("")["status"] == "Pending"
