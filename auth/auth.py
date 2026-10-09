@@ -33,8 +33,9 @@ load_dotenv(_ENV_PATH)
 
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_SECONDS = 300  # 5 minutes
+FAILURE_WINDOW_SECONDS = 900  # failures further apart than this do not add up
 
-_login_attempts = {}  # ip -> {"count": int, "locked_until": float or None}
+_login_attempts = {}  # ip -> {"count": int, "locked_until": float or None, "last_failure": float}
 _login_attempts_lock = Lock()
 
 
@@ -56,12 +57,28 @@ def is_locked_out(ip_address):
 
 
 def record_failed_login(ip_address):
-    """Count one failed attempt for this IP. Locks it out if the limit is hit."""
+    """Count one failed attempt for this IP. Locks it out if the limit is hit.
+
+    Failures only add up while they keep coming. An IP that has been quiet for
+    FAILURE_WINDOW_SECONDS starts again from zero, so a few typos spread over
+    days never lock anyone out (and the table cannot grow forever).
+    """
+    now = time.time()
     with _login_attempts_lock:
-        record = _login_attempts.setdefault(ip_address, {"count": 0, "locked_until": None})
+        quiet_ips = [
+            ip for ip, rec in _login_attempts.items()
+            if not rec["locked_until"] and now - rec["last_failure"] > FAILURE_WINDOW_SECONDS
+        ]
+        for ip in quiet_ips:
+            del _login_attempts[ip]
+
+        record = _login_attempts.setdefault(
+            ip_address, {"count": 0, "locked_until": None, "last_failure": now}
+        )
         record["count"] += 1
+        record["last_failure"] = now
         if record["count"] >= MAX_FAILED_ATTEMPTS:
-            record["locked_until"] = time.time() + LOCKOUT_SECONDS
+            record["locked_until"] = now + LOCKOUT_SECONDS
 
 
 def reset_login_attempts(ip_address):
