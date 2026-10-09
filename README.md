@@ -250,7 +250,7 @@ Each finding has:
 
 If a check that hard-failed and a check that is separately Pending both apply, **both** are reported — an officer sees the complete picture, not just the most severe finding.
 
-Implemented in `backend/explanation.py`, covered by `backend/test_explanation.py` (71 tests, including a differential test against every combination of check outcomes the dashboard can produce).
+Implemented in `backend/explanation.py`, covered by `backend/test_explanation.py` (91 tests, including a differential test against every combination of check outcomes the dashboard can produce).
 
 ---
 
@@ -314,8 +314,9 @@ Every protected route asks one question: does the session say logged in? If yes,
 - Every protected route re-checks the session on the server, so calling a route directly (browser, `curl`, a script) without logging in is refused before anything is saved.
 - It fails closed: if `AUTH_USERNAME` or `AUTH_PASSWORD` is missing, nobody can log in.
 - The app refuses to start if `SECRET_KEY` is missing.
-- Failed logins are rate-limited: after 5 wrong attempts from the same IP address, further attempts are blocked for 5 minutes (HTTP 429), even with the correct password. The counter is kept in server memory, so restarting the server clears it.
+- Failed logins are rate-limited: after 5 wrong attempts from the same IP address, further attempts are blocked for 5 minutes (HTTP 429), even with the correct password. The counter is kept in server memory, so restarting the server clears it. Failures only add up while they keep coming: after 15 minutes without a failed attempt the count starts again.
 - A login expires after 15 minutes without activity; every request restarts the clock.
+- The lockout, the timeout, the logged-out redirects and the debug-off setting are covered by `backend/test_login_security.py` (12 tests), which run the real app with only the heavy AI modules replaced by stand-ins.
 
 **Configuration (`.env`)**
 
@@ -412,6 +413,7 @@ pytest validation/test_validate_context.py -v
 pytest ocr/test_orientation.py -v
 pytest blockchain/test_audit_store.py -v
 pytest backend/test_explanation.py -v
+pytest backend/test_login_security.py -v
 ```
 A module can also be run on its own outside pytest:
 ```bash
