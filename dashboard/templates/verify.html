@@ -9,7 +9,7 @@
 <body>
   <header class="topbar">
     <a href="/" class="topbar__mark">BORDERSHIELD</a>
-    <span class="topbar__project">SIH26188 — BorderShield <a href="/audit" class="topbar__logout">Audit log</a> <a href="/logout" class="topbar__logout">Sign out</a></span>
+    <span class="topbar__project">SIH26188 — BorderShield <a href="/" class="topbar__logout">New scan</a> <a href="/audit" class="topbar__logout">Audit log</a> <a href="/logout" class="topbar__logout">Sign out</a></span>
   </header>
 
   <main class="stage">
@@ -52,7 +52,7 @@
       prove that the scanned document itself is genuine.
     </p>
 
-    <a href="/audit" class="btn-secondary">Back to audit log</a>
+    {% if results_url %}<a href="{{ results_url }}" class="btn-secondary">Back to scan results</a> {% endif %}<a href="/audit" class="btn-secondary">Back to audit log</a>
     <a href="/" class="btn-secondary">Scan another document</a>
   </main>
 </body>

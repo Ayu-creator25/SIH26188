@@ -28,6 +28,7 @@ from liveness_check import check_liveness
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'auth'))
 from auth import check_credentials, login_required, is_locked_out, record_failed_login, reset_login_attempts
+from recent_results import RecentResults
 
 
 app = Flask(
@@ -51,6 +52,10 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 # SESSION_TIMEOUT_MINUTES=1 instead of editing this file.
 SESSION_TIMEOUT_MINUTES = int(os.environ.get('SESSION_TIMEOUT_MINUTES', '15'))
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=SESSION_TIMEOUT_MINUTES)
+
+# Full scan results are kept in memory (never on disk) for as long as a login lasts,
+# so an officer can come back to a result from the integrity check page.
+recent_results = RecentResults(ttl_seconds=SESSION_TIMEOUT_MINUTES * 60, max_items=20)
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'data', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -212,6 +217,7 @@ def login():
 def logout():
     """Clear the session and send the user back to the login page."""
     session.clear()
+    recent_results.clear()  # forget the stored scan results too
     return redirect(url_for('login'))
 
 
@@ -253,15 +259,37 @@ def scan():
         )
 
     pipeline_result["filename"] = filename
-    return render_template('results.html', result=pipeline_result)
+    recent_results.remember(pipeline_result["document_id"], pipeline_result)
+    # Redirect, so refreshing the page shows the result again instead of re-sending the upload.
+    return redirect(url_for('show_results', document_id=pipeline_result["document_id"]))
+
+
+@app.route('/results/<document_id>')
+@login_required
+def show_results(document_id):
+    """Show a recent scan result again (kept in memory for a short time only)."""
+    result = recent_results.recall(document_id)
+    if result is None:
+        return render_template(
+            'index.html',
+            error="That scan result is no longer available. Scan the document again, "
+                  "or open the audit log to check a past record."
+        ), 404
+    return render_template('results.html', result=result)
 
 
 @app.route('/verify/<document_id>')
 @login_required
 def verify(document_id):
     """Re-hash one stored record and compare it with the blockchain."""
+    # Offer a way back to the full result only while that result is still available.
+    results_url = (
+        url_for('show_results', document_id=document_id)
+        if recent_results.has(document_id) else None
+    )
     return render_template(
-        'verify.html', document_id=document_id, result=verify_record(document_id)
+        'verify.html', document_id=document_id, result=verify_record(document_id),
+        results_url=results_url,
     )
 
 

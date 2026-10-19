@@ -168,8 +168,8 @@ Then open `http://127.0.0.1:5000` in your browser:
 1. You are sent to the **sign-in page**. Log in with the `AUTH_USERNAME` / `AUTH_PASSWORD` from your `.env`.
 2. Upload a JPG/PNG ID image (drag and drop or click). Maximum size is 10 MB.
 3. Optionally capture a live photo (see [Live photo](#live-photo-face-match-and-liveness)).
-4. Click **Scan Document**. The results page shows the extracted text, the four check cards, the **Why This Decision** explanation, and the blockchain audit panel.
-5. Use **Audit log** in the top bar to see every past scan and its live integrity status, or **Sign out** when you are done.
+4. Click **Scan Document**. You land on the results page (`/results/<id>`), which shows the extracted text, the four check cards, the **Why This Decision** explanation, and the blockchain audit panel. Refreshing that page does not scan again.
+5. Use the top bar on any page: **New scan** (the **BORDERSHIELD** logo does the same) returns to the upload page, **Audit log** shows every past scan and its live integrity status, and **Sign out** ends your session. The **Verify integrity** button on the results page opens the integrity check, and its **Back to scan results** button brings you back.
 
 The first scan is slower than later ones because models are loaded (or downloaded) on first use.
 
@@ -344,7 +344,8 @@ SIH26188/
 ├── auth/                  # login_required decorator + credential check
 ├── backend/
 │   ├── app.py             # Flask app tying every module together
-│   └── explanation.py     # decision fusion + plain-language "Why This Decision"
+│   ├── explanation.py     # decision fusion + plain-language "Why This Decision"
+│   └── recent_results.py  # keeps recent full scan results in memory (never on disk)
 ├── blockchain/
 │   ├── hash_record.py     # writes the record hash to Ganache
 │   └── audit_store.py     # stores the full record off-chain + re-verifies it on demand
@@ -394,6 +395,7 @@ SIH26188/
 | `face_verify/face_match.py` | `verify_face(id_filepath, live_filepath)` | Dict with `status` (MATCH / NO_MATCH / ERROR), `message` |
 | `liveness/liveness_check.py` | `check_liveness(live_filepath)` | Dict with `is_live` (True / False / None), `confidence`, `error` |
 | `backend/explanation.py` | `explain_decision(validation_status, tamper_status, face_match_status, liveness_status, details)` | Dict with `decision`, `action`, `action_text`, `reason_codes`, `reasons` |
+| `backend/recent_results.py` | `RecentResults(ttl_seconds, max_items)` with `remember(id, result)`, `recall(id)`, `has(id)`, `clear()` | In-memory store of recent full scan results (covered by `backend/test_results_navigation.py`, 16 tests) |
 | `blockchain/hash_record.py` | `create_record(document_id, result_summary)` | Dict with `tx_hash`, `record_hash`, `status` |
 | `blockchain/audit_store.py` | `save_record(...)`, `verify_record(document_id)`, `list_records(limit)` | Saves/verifies/lists off-chain audit records |
 | `auth/auth.py` | `check_credentials(username, password)`, `@login_required` | `True` / `False`, and a route guard |
@@ -414,6 +416,7 @@ pytest ocr/test_orientation.py -v
 pytest blockchain/test_audit_store.py -v
 pytest backend/test_explanation.py -v
 pytest backend/test_login_security.py -v
+pytest backend/test_results_navigation.py -v
 ```
 A module can also be run on its own outside pytest:
 ```bash
@@ -521,6 +524,7 @@ Your virtual environment isn't active in this terminal. Run the activation comma
 - **Blockchain is local.** The audit trail and integrity check need a Ganache node on the same machine. Without it, new scans show ledger status Pending, and existing records show integrity status "Ledger Offline" until it's running again.
 - **A bare 12-digit number is only checked as an Aadhaar number when it is printed in groups (e.g. "1234 5678 9012") or the text mentions Aadhaar/UID.** This avoids false positives on other 12-digit numbers (e.g. a college registration number), at the cost of not checksum-validating a fabricated Aadhaar number typed as one unbroken run of digits with no label.
 - **Only Aadhaar and passport are validated.** Other documents (college ID, PAN card, driving licence and so on) are reported as Unsupported and sent to officer review instead of being validated.
+- **Scan results are only kept for a short time.** So that the integrity page can link back to the full result, the last 20 results (including the extracted text) are held in server memory for 15 minutes. They are never written to disk, and they are cleared on sign out and when the server restarts. Older scans cannot be reopened (the audit record holds no personal data by design); only their integrity can be checked.
 - **JPG/PNG only.** PDF upload is not implemented.
 - **Windows-generated requirements.** `requirements.txt` includes Windows-only packages (`pywin32`, `win-inet-pton`), so installing on Linux hosting needs those lines removed.
 - **Image quality matters.** Blurry or low-resolution scans can produce unreadable OCR text. When a check cannot complete it shows Pending and the overall decision becomes Suspicious rather than Verified — the system is deliberately conservative rather than guessing.
