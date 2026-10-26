@@ -316,6 +316,7 @@ Every protected route asks one question: does the session say logged in? If yes,
 - The app refuses to start if `SECRET_KEY` is missing.
 - Failed logins are rate-limited: after 5 wrong attempts from the same IP address, further attempts are blocked for 5 minutes (HTTP 429), even with the correct password. The counter is kept in server memory, so restarting the server clears it. Failures only add up while they keep coming: after 15 minutes without a failed attempt the count starts again.
 - A login expires after 15 minutes without activity; every request restarts the clock.
+- The terminal never shows what the OCR read or the uploaded file's name, only how many text regions were found and how sure the OCR was. `python ocr/scan.py <image> --show-text` prints (and saves) the text only when you ask for it.
 - The lockout, the timeout, the logged-out redirects and the debug-off setting are covered by `backend/test_login_security.py` (12 tests), which run the real app with only the heavy AI modules replaced by stand-ins.
 
 **Configuration (`.env`)**
@@ -389,7 +390,7 @@ SIH26188/
 | Module file | Called as | Returns |
 |---|---|---|
 | `ocr/orientation.py` | `correct_orientation(id_filepath)` | Dict with `path` (image to use), `angle`, `changed`, `note` |
-| `ocr/scan.py` | `scan_document(image_path)` | Extracted text (string) |
+| `ocr/scan.py` | `scan_document(image_path)` | Extracted text (string), returned to the app but never printed (covered by `ocr/test_scan_privacy.py`, 9 tests) |
 | `validation/validate.py` | `validate_fields(extracted_text)` | Dict with `status` (Valid / Invalid / Unsupported / Pending), `details`, `checks` |
 | `tamper_detection/tamper_check.py` | `check_tampering(id_filepath)` | Dict with `status` (Clean / Suspicious), `details` |
 | `face_verify/face_match.py` | `verify_face(id_filepath, live_filepath)` | Dict with `status` (MATCH / NO_MATCH / ERROR), `message` |
@@ -413,6 +414,7 @@ Or one file at a time, e.g.:
 pytest validation/test_validate.py -v
 pytest validation/test_validate_context.py -v
 pytest ocr/test_orientation.py -v
+pytest ocr/test_scan_privacy.py -v
 pytest blockchain/test_audit_store.py -v
 pytest backend/test_explanation.py -v
 pytest backend/test_login_security.py -v

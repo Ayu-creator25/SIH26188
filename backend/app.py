@@ -252,7 +252,7 @@ def scan():
     try:
         pipeline_result = run_verification_pipeline(filepath, live_filepath)
     except Exception as e:
-        print(f"Error processing {filename}: {e}")
+        print(f"Error processing an uploaded file: {e}")  # no file name: it can hold a person's name
         return render_template(
             'index.html',
             error="Could not process this file. Please upload a valid, undamaged JPG or PNG image."
