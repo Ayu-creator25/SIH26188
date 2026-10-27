@@ -10,7 +10,8 @@ disagree. The rules are "worst signal wins":
 
     * any hard failure                     -> High Risk   (Escalate)
     * no hard failure, but a check could
-      not be completed                     -> Suspicious  (Officer review)
+      not be completed (this includes a
+      document type that is not supported) -> Suspicious  (Officer review)
     * every check passed cleanly           -> Verified    (Clear)
 
 A status that is not the expected "pass" value counts as "could not be
@@ -42,8 +43,8 @@ _HARD_FAILURES = [
 # Reasons for a check that could not be completed, in reporting order.
 _PENDING_REASONS = [
     ("validation", "VALIDATION_PENDING",
-     "There were not enough readable ID fields to validate. This may be an "
-     "unsupported document type or an unclear image."),
+     "The document's ID number could not be read or verified, so the ID fields "
+     "could not be validated. Try a clearer photo."),
     ("tamper", "TAMPER_PENDING",
      "The tamper check could not be completed."),
     ("face", "FACE_PENDING",
@@ -51,6 +52,17 @@ _PENDING_REASONS = [
     ("liveness", "LIVENESS_PENDING",
      "The liveness check could not be completed (no live photo, or no face was found)."),
 ]
+
+# A "could not be completed" status can have a more precise reason of its own.
+# It is looked up by (check, status) before falling back to _PENDING_REASONS.
+_STATUS_SPECIFIC_REASONS = {
+    ("validation", "Unsupported"): (
+        "VALIDATION_UNSUPPORTED",
+        "This document type is not supported by automated field validation "
+        "(only Aadhaar and passport are checked), or the image was too unclear "
+        "to read. An officer should review it manually.",
+    ),
+}
 
 _ALL_CLEAR = ("ALL_CLEAR", "All four checks passed: validation, tamper, face match and liveness.")
 
@@ -100,6 +112,7 @@ def explain_decision(validation_status, tamper_status, face_match_status,
     failed_checks = {check for check, status, _, _ in _HARD_FAILURES if statuses[check] == status}
     for check, code, text in _PENDING_REASONS:
         if check not in failed_checks and statuses[check] != PASS_STATUS[check]:
+            code, text = _STATUS_SPECIFIC_REASONS.get((check, statuses[check]), (code, text))
             reasons.append(_reason(code, text, details.get(check), "suspicious"))
 
     if any(reason["level"] == "high-risk" for reason in reasons):

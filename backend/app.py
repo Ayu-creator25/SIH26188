@@ -3,7 +3,7 @@ from werkzeug.utils import secure_filename
 import os
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ocr'))
 from scan import scan_document
@@ -27,7 +27,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'liveness'))
 from liveness_check import check_liveness
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'auth'))
-from auth import check_credentials, login_required
+from auth import check_credentials, login_required, is_locked_out, record_failed_login, reset_login_attempts
+from recent_results import RecentResults
+
 
 app = Flask(
     __name__,
@@ -44,6 +46,16 @@ if not app.secret_key:
 
 # Stops other websites from sending our cookie with cross-site requests.
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+# Idle timeout: a login expires after this many minutes with no activity.
+# Flask re-issues the cookie on every request, so the clock restarts each
+# time the officer does something. For testing, run the app with
+# SESSION_TIMEOUT_MINUTES=1 instead of editing this file.
+SESSION_TIMEOUT_MINUTES = int(os.environ.get('SESSION_TIMEOUT_MINUTES', '15'))
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=SESSION_TIMEOUT_MINUTES)
+
+# Full scan results are kept in memory (never on disk) for as long as a login lasts,
+# so an officer can come back to a result from the integrity check page.
+recent_results = RecentResults(ttl_seconds=SESSION_TIMEOUT_MINUTES * 60, max_items=20)
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'data', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -170,16 +182,34 @@ def run_verification_pipeline(id_filepath, live_filepath):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Show the login form (GET) or check the submitted login (POST)."""
+    # request.remote_addr is the visitor's IP as Flask's dev server sees it.
+    # Good enough for this single-instance prototype; a real deployment
+    # behind a proxy would need to read a forwarded-for header instead.
+    ip_address = request.remote_addr
+
     if request.method == 'POST':
+        locked, seconds_remaining = is_locked_out(ip_address)
+        if locked:
+            minutes_remaining = max(1, seconds_remaining // 60)
+            return render_template(
+                'login.html',
+                error=f"Too many failed attempts. Try again in about {minutes_remaining} minute(s)."
+            ), 429
+
         username = request.form.get('username', '')
         password = request.form.get('password', '')
         if check_credentials(username, password):
+            reset_login_attempts(ip_address)
             session.clear()  # start from a fresh session
+            session.permanent = True  # apply the idle timeout set above
             session['logged_in'] = True  # only a flag, never the password
             return redirect(url_for('index'))
+
+        record_failed_login(ip_address)
         return render_template(
             'login.html', error="Invalid username or password."
         ), 401
+
     return render_template('login.html')
 
 
@@ -187,6 +217,7 @@ def login():
 def logout():
     """Clear the session and send the user back to the login page."""
     session.clear()
+    recent_results.clear()  # forget the stored scan results too
     return redirect(url_for('login'))
 
 
@@ -221,22 +252,44 @@ def scan():
     try:
         pipeline_result = run_verification_pipeline(filepath, live_filepath)
     except Exception as e:
-        print(f"Error processing {filename}: {e}")
+        print(f"Error processing an uploaded file: {e}")  # no file name: it can hold a person's name
         return render_template(
             'index.html',
             error="Could not process this file. Please upload a valid, undamaged JPG or PNG image."
         )
 
     pipeline_result["filename"] = filename
-    return render_template('results.html', result=pipeline_result)
+    recent_results.remember(pipeline_result["document_id"], pipeline_result)
+    # Redirect, so refreshing the page shows the result again instead of re-sending the upload.
+    return redirect(url_for('show_results', document_id=pipeline_result["document_id"]))
+
+
+@app.route('/results/<document_id>')
+@login_required
+def show_results(document_id):
+    """Show a recent scan result again (kept in memory for a short time only)."""
+    result = recent_results.recall(document_id)
+    if result is None:
+        return render_template(
+            'index.html',
+            error="That scan result is no longer available. Scan the document again, "
+                  "or open the audit log to check a past record."
+        ), 404
+    return render_template('results.html', result=result)
 
 
 @app.route('/verify/<document_id>')
 @login_required
 def verify(document_id):
     """Re-hash one stored record and compare it with the blockchain."""
+    # Offer a way back to the full result only while that result is still available.
+    results_url = (
+        url_for('show_results', document_id=document_id)
+        if recent_results.has(document_id) else None
+    )
     return render_template(
-        'verify.html', document_id=document_id, result=verify_record(document_id)
+        'verify.html', document_id=document_id, result=verify_record(document_id),
+        results_url=results_url,
     )
 
 

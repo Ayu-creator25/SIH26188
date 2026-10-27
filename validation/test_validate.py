@@ -39,11 +39,11 @@ def test_invalid_aadhaar_wrong_digits():
 
 
 def test_missing_required_fields():
-    """Test 4: Missing required fields — expect Invalid or Pending."""
+    """Test 4: Text with no document fields — expect Unsupported."""
     text = "Some random text without any document fields"
     result = validate_fields(text)
-    assert result["status"] in ("Invalid", "Pending")
-    print("Test 4 PASSED: Missing fields handled correctly")
+    assert result["status"] == "Unsupported"
+    print("Test 4 PASSED: Unrecognised text reported as Unsupported")
 
 
 def test_mrz_valid_checksum():
@@ -130,6 +130,46 @@ def test_name_detected_without_label():
     print("Test 14 PASSED: Name detected without an explicit label")
 
 
+def test_college_id_is_unsupported():
+    """Test 15: A college ID card (not Aadhaar or passport) must be Unsupported."""
+    text = "Test University\nIdentity Card\nName\nTEST STUDENT\nBranch\nCSE\nRegd. No.\n250000000000\nValidity\n2025\n2029"
+    result = validate_fields(text)
+    assert result["status"] == "Unsupported"
+    print("Test 15 PASSED: College ID reported as Unsupported")
+
+
+def test_name_and_date_alone_are_not_valid():
+    """Test 16: A name plus a valid date must not earn 'Valid' on a non-Aadhaar/passport card (e.g. PAN)."""
+    text = "INCOME TAX DEPARTMENT\nPermanent Account Number Card\nABCDE1234F\nName\nTEST USER\n01/01/2000"
+    result = validate_fields(text)
+    assert result["status"] == "Unsupported"
+    print("Test 16 PASSED: Name and date alone do not produce Valid")
+
+
+def test_aadhaar_cue_word_keeps_document_supported():
+    """Test 17: A card that names itself Aadhaar but whose number is unreadable is Pending: supported, not verified."""
+    text = "Government of India\nTest User\nDOB: 15/08/1995\nAadhaar"
+    result = validate_fields(text)
+    assert result["status"] == "Pending"
+    print("Test 17 PASSED: Aadhaar card with no readable number is Pending")
+
+
+def test_malformed_aadhaar_number_is_not_valid():
+    """Test 18: An Aadhaar-labelled number with the wrong digit count must not earn Valid."""
+    text = "Name: TEST USER\nDOB: 15/08/1995\nAadhaar: 1234 5678 90"
+    result = validate_fields(text)
+    assert result["status"] == "Pending"
+    print("Test 18 PASSED: Malformed Aadhaar number is not Valid")
+
+
+def test_valid_mrz_counts_as_a_verified_identifier():
+    """Test 19: A passport MRZ line with correct check digits is enough to reach Valid."""
+    text = "L898902C36UTO7408122F1204159ZE184226B<<<<<10"
+    result = validate_fields(text)
+    assert result["status"] == "Valid"
+    print("Test 19 PASSED: Valid MRZ reaches Valid")
+
+
 def run_all_tests():
     """Run all test cases."""
     print("=" * 50)
@@ -152,6 +192,11 @@ def run_all_tests():
         test_pincode_not_treated_as_date,
         test_aadhaar_checksum_failure_marks_invalid,
         test_name_detected_without_label,
+        test_college_id_is_unsupported,
+        test_name_and_date_alone_are_not_valid,
+        test_aadhaar_cue_word_keeps_document_supported,
+        test_malformed_aadhaar_number_is_not_valid,
+        test_valid_mrz_counts_as_a_verified_identifier,
     ]
 
     passed = 0

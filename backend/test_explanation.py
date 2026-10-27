@@ -16,7 +16,7 @@ from explanation import PASS_STATUS, explain_decision
 
 # The statuses each check can actually produce on the dashboard.
 POSSIBLE_STATUSES = {
-    "validation": ["Valid", "Invalid", "Pending"],
+    "validation": ["Valid", "Invalid", "Pending", "Unsupported"],
     "tamper": ["Clean", "Suspicious"],
     "face": ["Match", "No Match", "Pending"],
     "liveness": ["Live", "Spoof Detected", "Pending"],
@@ -63,6 +63,21 @@ def test_each_pending_check_alone_is_suspicious(check, code):
     assert result["decision"] == "Suspicious"
     assert result["action"] == "Officer review"
     assert result["reason_codes"] == [code]
+
+
+def test_unsupported_document_alone_is_suspicious_with_its_own_reason():
+    """A document type we do not validate goes to an officer, with its own reason code."""
+    result = outcome(validation="Unsupported")
+    assert result["decision"] == "Suspicious"
+    assert result["action"] == "Officer review"
+    assert result["reason_codes"] == ["VALIDATION_UNSUPPORTED"]
+
+
+def test_unsupported_document_with_a_hard_failure_is_still_high_risk():
+    """The hard failure sets the decision; the unsupported document is still reported."""
+    result = outcome(validation="Unsupported", face="No Match")
+    assert result["decision"] == "High Risk"
+    assert result["reason_codes"] == ["FACE_NO_MATCH", "VALIDATION_UNSUPPORTED"]
 
 
 def test_no_live_photo_is_suspicious_with_two_reasons():
@@ -135,7 +150,7 @@ def test_every_combination_agrees_with_the_original_fusion_rule(validation, tamp
     """
     if tamper == "Suspicious" or validation == "Invalid" or face == "No Match" or liveness == "Spoof Detected":
         expected = "High Risk"
-    elif "Pending" in (validation, tamper, face, liveness):
+    elif any(s in ("Pending", "Unsupported") for s in (validation, tamper, face, liveness)):
         expected = "Suspicious"
     else:
         expected = "Verified"

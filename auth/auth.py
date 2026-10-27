@@ -9,6 +9,8 @@ All secrets are read from environment variables (loaded from the
 git-ignored .env file) -- nothing sensitive is hard-coded here.
 """
 
+import time
+from threading import Lock
 import hmac
 import os
 from functools import wraps
@@ -22,6 +24,67 @@ from flask import redirect, session, url_for
 # the platform's real environment variables are used instead.
 _ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_ENV_PATH)
+
+
+# --- Login rate limiting (in-memory, per IP address) ---
+# Not shared across multiple server processes -- fine for a single-instance
+# prototype. A production deployment should move this to Redis or the
+# database instead (see the production-rebuild roadmap, Phase 2).
+
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_SECONDS = 300  # 5 minutes
+FAILURE_WINDOW_SECONDS = 900  # failures further apart than this do not add up
+
+_login_attempts = {}  # ip -> {"count": int, "locked_until": float or None, "last_failure": float}
+_login_attempts_lock = Lock()
+
+
+def is_locked_out(ip_address):
+    """Return (True, seconds_remaining) if this IP is currently locked out,
+    otherwise (False, 0)."""
+    with _login_attempts_lock:
+        record = _login_attempts.get(ip_address)
+        if not record or not record["locked_until"]:
+            return False, 0
+
+        seconds_remaining = record["locked_until"] - time.time()
+        if seconds_remaining <= 0:
+            # Lockout has expired -- clear it so the next attempt is fresh.
+            _login_attempts.pop(ip_address, None)
+            return False, 0
+
+        return True, int(seconds_remaining)
+
+
+def record_failed_login(ip_address):
+    """Count one failed attempt for this IP. Locks it out if the limit is hit.
+
+    Failures only add up while they keep coming. An IP that has been quiet for
+    FAILURE_WINDOW_SECONDS starts again from zero, so a few typos spread over
+    days never lock anyone out (and the table cannot grow forever).
+    """
+    now = time.time()
+    with _login_attempts_lock:
+        quiet_ips = [
+            ip for ip, rec in _login_attempts.items()
+            if not rec["locked_until"] and now - rec["last_failure"] > FAILURE_WINDOW_SECONDS
+        ]
+        for ip in quiet_ips:
+            del _login_attempts[ip]
+
+        record = _login_attempts.setdefault(
+            ip_address, {"count": 0, "locked_until": None, "last_failure": now}
+        )
+        record["count"] += 1
+        record["last_failure"] = now
+        if record["count"] >= MAX_FAILED_ATTEMPTS:
+            record["locked_until"] = now + LOCKOUT_SECONDS
+
+
+def reset_login_attempts(ip_address):
+    """Clear an IP's failed-attempt count after a successful login."""
+    with _login_attempts_lock:
+        _login_attempts.pop(ip_address, None)
 
 
 def check_credentials(username, password):
